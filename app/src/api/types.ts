@@ -51,6 +51,11 @@ export interface Lot { id: string; recipeName: string; lotCode: string; produced
 export interface Dish { name: string; ingredients: string[]; allergens: string[] }
 export type NcKind = 'corps_etranger' | 'allergie' | 'coupure_courant' | 'hygiene' | 'autre';
 
+export interface NcStep { step: 'mesure_immediate' | 'evaluation_risque' | 'action_corrective' | 'verification' | 'cloture'; content: string; by: string; at: Date }
+export interface Nc { id: string; kind: string; description: string; openedBy: string; openedAt: Date; steps: NcStep[]; closed: boolean }
+export interface Member { id: string; prenom: string; poste: string; clockedIn: boolean; since: Date | null; aptToday: boolean | null }
+export interface DayStats { releves: number; relevesRouges: number; nettoyagesFaits: number; nettoyagesEnRetard: number; lotsAJeter: number; receptions: number }
+
 /** Contrat commun : implémenté par la démo (mémoire) et par Supabase (fonctions RPC du serveur). */
 export interface Api {
   openSession(pin: string): Promise<Session>;
@@ -72,4 +77,12 @@ export interface Api {
   jeterLot(token: string, lotId: string): Promise<void>;
   dishes(): Promise<Dish[]>;
   signaler(token: string, kind: NcKind, description: string): Promise<void>;
+  // Espace Direction (iPhone) : token = session Direction
+  directionLogin(memberId: string): Promise<Session>;
+  nonconformities(): Promise<Nc[]>;
+  ncStep(token: string, ncId: string, step: NcStep['step'], content: string): Promise<void>;
+  team(): Promise<Member[]>;
+  addMember(token: string, prenom: string, poste: string): Promise<string>;   // renvoie le code, affiché une seule fois
+  resetPin(token: string, memberId: string): Promise<string>;
+  dayStats(now: Date): Promise<DayStats>;
 }

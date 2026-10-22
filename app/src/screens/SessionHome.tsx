@@ -29,7 +29,7 @@ export function SessionHome({ api, session, onOpen, onDepointer }:
         <div className="eyebrow">{session.poste}</div>
         <h1 className="h1">{session.prenom}</h1>
       </div>
-      {!session.aptToday && (
+      {!session.aptToday && session.poste !== 'Gérant' && session.poste !== 'Manager' && (
         <div className="group" style={{ background: 'var(--red-bg)', padding: '12px 16px', fontSize: 14 }}>
           Prise de poste non conforme : relevés et préparations bloqués aujourd’hui.</div>
       )}

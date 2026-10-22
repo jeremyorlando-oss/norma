@@ -4,7 +4,7 @@ import { formatDelay, worstAlert } from '../domain/rules';
 
 const BG = { ok: '#FFFFFF', jaune: 'var(--yellow-screen)', rouge: 'var(--red-screen)' } as const;
 
-export function Pointage({ api, onSession, demoHint }: { api: Api; onSession: (s: Session) => void; demoHint?: string }) {
+export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; onSession: (s: Session) => void; demoHint?: string; onDirection?: () => void }) {
   const [now, setNow] = useState(new Date());
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -67,6 +67,7 @@ export function Pointage({ api, onSession, demoHint }: { api: Api; onSession: (s
               <button key={i} className={`key ${k === '⌫' ? 'ghost' : ''}`} aria-label={k === '⌫' ? 'Effacer' : k} onClick={() => press(k)}>{k}</button>)}
         </div>
         {demoHint && <div className="demo-banner">{demoHint}</div>}
+        {demoHint && onDirection && <button className="link" style={{ fontSize: 13 }} onClick={onDirection}>Démo : ouvrir l’espace Direction (iPhone)</button>}
       </div>
     </div>
   );

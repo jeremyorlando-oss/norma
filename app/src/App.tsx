@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Api, Session } from './api/types';
 import { Allergenes } from './screens/Allergenes';
+import { Direction } from './screens/Direction';
 import { Huile } from './screens/Huile';
 import { Signaler } from './screens/Signaler';
 import { Nettoyage } from './screens/Nettoyage';
@@ -15,14 +16,17 @@ type View = 'home' | 'prise' | Target;
 const IDLE_MS = 2 * 60_000;   // D35 : fermeture après 2 min sans activité
 
 export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
+  const [mode, setMode] = useState<'stand' | 'direction'>(location.hash === '#direction' ? 'direction' : 'stand');
   const [session, setSession] = useState<Session | null>(null);
+  const [depannage, setDepannage] = useState(false);
   const [view, setView] = useState<View>('home');
   const timer = useRef<number>();
 
   const close = useCallback(() => {
-    if (session) api.closeSession(session.token);
+    if (session && !depannage) api.closeSession(session.token);
     setSession(null); setView('home');
-  }, [api, session]);
+    if (depannage) { setDepannage(false); setMode('direction'); }
+  }, [api, session, depannage]);
 
   // Inactivité : toute interaction relance le minuteur
   useEffect(() => {
@@ -33,7 +37,9 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
     return () => { window.clearTimeout(timer.current); window.removeEventListener('pointerdown', reset); };
   }, [session, close]);
 
-  if (!session) return <Pointage api={api} demoHint={demoHint}
+  if (mode === 'direction' && !session) return <Direction api={api} onLogout={() => setMode('stand')}
+    onDepannage={(s) => { setDepannage(true); setSession(s); setView(s.aptToday ? 'home' : 'prise'); }} />;
+  if (!session) return <Pointage api={api} demoHint={demoHint} onDirection={() => setMode('direction')}
     onSession={(s) => { setSession(s); setView(s.aptToday ? 'home' : 'prise'); }} />;
 
   const back = () => setView('home');
@@ -47,6 +53,7 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
         </svg>
       </button>
       {view === 'prise' && <PrisePoste api={api} session={session} onDone={(ok) => { setSession({ ...session, aptToday: ok }); back(); }} />}
+      {depannage && <div style={{ background: 'var(--yellow)', textAlign: 'center', fontSize: 13, fontWeight: 600, padding: 6 }}>Saisie de dépannage depuis l’iPhone · {session.prenom}</div>}
       {view === 'home' && <SessionHome api={api} session={session} onOpen={setView}
         onDepointer={async () => { await api.depointer(session.token); setSession(null); }} />}
       {view === 'releve' && <Releve api={api} session={session} onBack={back} />}
