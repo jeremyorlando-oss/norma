@@ -17,12 +17,12 @@ export const POSTES: Record<string, Right[]> = {
   'Caisse': ['pointage', 'prise_poste', 'nettoyage', 'signaler_nc', 'allergenes_lecture'],
 };
 
-export const DEMO_MEMBERS: { id: string; prenom: string; poste: string; pin: string }[] = [
-  { id: 'm1', prenom: 'Orlando', poste: 'Gérant', pin: '2580' },
-  { id: 'm2', prenom: 'Vincent', poste: 'Manager', pin: '3691' },
-  { id: 'm3', prenom: 'Esteban', poste: 'Chef de cuisine', pin: '4827' },
-  { id: 'm4', prenom: 'Lucía', poste: 'Aide de cuisine', pin: '6142' },
-  { id: 'm5', prenom: 'Noah', poste: 'Caisse', pin: '5913' },
+export const DEMO_MEMBERS: { id: string; prenom: string; poste: string; pin: string; lang: 'fr' | 'es' | 'en' }[] = [
+  { id: 'm1', prenom: 'Orlando', poste: 'Gérant', pin: '2580', lang: 'fr' },
+  { id: 'm2', prenom: 'Vincent', poste: 'Manager', pin: '3691', lang: 'fr' },
+  { id: 'm3', prenom: 'Esteban', poste: 'Chef de cuisine', pin: '4827', lang: 'fr' },
+  { id: 'm4', prenom: 'Lucía', poste: 'Aide de cuisine', pin: '6142', lang: 'es' },
+  { id: 'm5', prenom: 'Noah', poste: 'Caisse', pin: '5913', lang: 'en' },
 ];
 
 const whoCan = (r: Right) => Object.entries(POSTES).filter(([, rs]) => rs.includes(r)).map(([p]) => p).join(', ');
@@ -113,7 +113,7 @@ export function createDemoApi(): Api {
       if (arrivee) clockedIn.set(m.id, new Date());
       const token = crypto.randomUUID();
       sessions.set(token, { memberId: m.id, last: Date.now() });
-      const s: Session = { token, memberId: m.id, prenom: m.prenom, poste: m.poste, arrivee, droits: POSTES[m.poste], aptToday: aptToday(m.id), trained: trained.has(m.id) };
+      const s: Session = { token, memberId: m.id, langue: m.lang, prenom: m.prenom, poste: m.poste, arrivee, droits: POSTES[m.poste], aptToday: aptToday(m.id), trained: trained.has(m.id) };
       return s;
     },
     async closeSession(token) { sessions.delete(token); },
@@ -218,7 +218,7 @@ export function createDemoApi(): Api {
       if (!['Gérant', 'Manager'].includes(m.poste)) throw new Error('Espace Direction réservé au Gérant et au Manager');
       const token = crypto.randomUUID();
       sessions.set(token, { memberId: m.id, last: Date.now(), iphone: true });   // pas d'expiration courte sur l'iPhone (Face ID)
-      return { token, memberId: m.id, prenom: m.prenom, poste: m.poste, arrivee: false, droits: POSTES[m.poste], aptToday: aptToday(m.id), trained: true };
+      return { token, memberId: m.id, langue: 'fr', prenom: m.prenom, poste: m.poste, arrivee: false, droits: POSTES[m.poste], aptToday: aptToday(m.id), trained: true };
     },
     async nonconformities() { return ncs.map((n) => ({ ...n, steps: [...n.steps] })); },
     async ncStep(token, ncId, step, content) {
@@ -242,7 +242,7 @@ export function createDemoApi(): Api {
       if (!can(m, 'gestion_equipe')) throw new Error('Gestion de l’équipe non autorisée');
       if (poste === 'Gérant' || (poste === 'Manager' && m.poste !== 'Gérant')) throw new Error('Seul le Gérant peut nommer un Manager');
       const pin = newPin();
-      DEMO_MEMBERS.push({ id: crypto.randomUUID(), prenom, poste, pin });
+      DEMO_MEMBERS.push({ id: crypto.randomUUID(), prenom, poste, pin, lang: 'fr' });
       return pin;
     },
     async resetPin(token, memberId) {

@@ -1,3 +1,4 @@
+import { useT } from '../i18n';
 import { useEffect, useMemo, useState } from 'react';
 import type { Api, Equipment, Session } from '../api/types';
 import { Wheel } from '../components/Wheel';
@@ -12,6 +13,7 @@ const ACTIONS = ['Porte, joint et réglage vérifiés', 'Produits isolés', 'Pro
 const MIN_T = -400, MAX_T = 1200;
 
 export function Releve({ api, session, onBack }: { api: Api; session: Session; onBack: () => void }) {
+  const tr = useT();
   const [eqs, setEqs] = useState<Equipment[]>([]);
   const [eqIdx, setEqIdx] = useState(0);
   const [t, setT] = useState(35);          // dixièmes de degré
@@ -29,57 +31,56 @@ export function Releve({ api, session, onBack }: { api: Api; session: Session; o
 
   const save = async () => {
     try { await api.releve(session.token, eq.id, t / 10, actions); setStep('ok'); setTimeout(onBack, 900); }
-    catch (e) { setError((e as Error).message); }
+    catch (e) { setError(tr((e as Error).message)); }
   };
 
-  if (step === 'ok') return <div className="screen" style={{ justifyContent: 'center', alignItems: 'center' }}><span className="badge vert">✓ Relevé enregistré</span></div>;
+  if (step === 'ok') return <div className="screen" style={{ justifyContent: 'center', alignItems: 'center' }}><span className="badge vert">{tr('✓ Relevé enregistré')}</span></div>;
 
   if (step === 'ecart') return (
     <div className="screen">
-      <div className="topbar"><button className="link" onClick={() => setStep('saisie')}>‹ Relevé</button><span className="title">Hors seuil</span><span style={{ width: 70 }} /></div>
+      <div className="topbar"><button className="link" onClick={() => setStep('saisie')}>‹ {tr('Relevé')}</button><span className="title">{tr('Hors seuil')}</span><span style={{ width: 70 }} /></div>
       <div className="group row"><span style={{ fontSize: 40, fontWeight: 300, color: 'var(--red)' }}>{formatTemp(t / 10)}</span>
-        <span className="grow"><b style={{ color: 'var(--red)' }}>Non conforme</b><span className="sub">{eq.name} · seuil {seuil}</span></span></div>
-      <div className="section-label">Action corrective · obligatoire</div>
+        <span className="grow"><b style={{ color: 'var(--red)' }}>{tr('Non conforme')}</b><span className="sub">{eq.name} {tr('· seuil')} {seuil}</span></span></div>
+      <div className="section-label">{tr('Action corrective · obligatoire')}</div>
       <div className="group">
         {ACTIONS.map((a) => (
           <label key={a} className="row" style={{ fontSize: 17 }}>
             <input type="checkbox" style={{ width: 22, height: 22, accentColor: 'var(--blue)' }} checked={actions.includes(a)}
-              onChange={(e) => setActions(e.target.checked ? [...actions, a] : actions.filter((x) => x !== a))} /> {a}
+              onChange={(e) => setActions(e.target.checked ? [...actions, a] : actions.filter((x) => x !== a))} / > {tr(a)}
           </label>))}
       </div>
-      <div className="group" style={{ background: 'var(--red-bg)', padding: '12px 16px', fontSize: 13, lineHeight: '18px' }}>
-        Ce relevé reste <b>non conforme</b> dans le registre. Une non-conformité est ouverte automatiquement.</div>
+      <div className="group" style={{ background: 'var(--red-bg)', padding: '12px 16px', fontSize: 13, lineHeight: '18px' }}> {tr('Ce relevé reste')} <b>{tr('non conforme')}</b> {tr('dans le registre. Une non-conformité est ouverte automatiquement.')}</div>
       <div className="error" role="alert">{error}</div>
-      <div style={{ marginTop: 'auto' }}><button className="btn btn-danger" disabled={actions.length === 0} onClick={save}>Enregistrer et ouvrir la NC</button></div>
+      <div style={{ marginTop: 'auto' }}><button className="btn btn-danger" disabled={actions.length === 0} onClick={save}>{tr('Enregistrer et ouvrir la NC')}</button></div>
     </div>
   );
 
   return (
     <div className="screen">
-      <div className="topbar"><button className="link" onClick={onBack}>‹ Retour</button><span className="title">Relevé</span><span style={{ width: 70 }} /></div>
-      <div className="section-label">Équipement · seuil {seuil}</div>
+      <div className="topbar"><button className="link" onClick={onBack}>‹ {tr('Retour')}</button><span className="title">{tr('Relevé')}</span><span style={{ width: 70 }} /></div>
+      <div className="section-label">{tr('Équipement · seuil')} {seuil}</div>
       <div className="group">
         <Wheel ariaLabel="Équipement" count={eqs.length} index={eqIdx} rowHeight={44} visible={3} centerSize={20}
-          label={(i) => eqs[i].name} onChange={(i) => { setEqIdx(i); setT(Math.round(eqs[i].defaultValue * 10)); }} />
+          label={(i) => tr(eqs[i].name)} onChange={(i) => { setEqIdx(i); setT(Math.round(eqs[i].defaultValue * 10)); }} />
       </div>
       <div className="group" style={{ padding: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
         <div style={{ width: '100%' }}>
           <Wheel ariaLabel="Température" reverse count={MAX_T - MIN_T + 1} index={t - MIN_T} onChange={(i) => setT(i + MIN_T)}
             label={(i) => formatTemp((i + MIN_T) / 10)} color={COL[status]} bandColor={BAND[status]} bandBorder={COL[status]} />
         </div>
-        <span className={`badge ${status}`}>{LABEL[status]}</span>
-        <span className="sub" style={{ fontSize: 13, color: 'var(--text-3)' }}>Glissez la molette vers le haut ou le bas</span>
+        <span className={`badge ${status}`}>{tr(LABEL[status])}</span>
+        <span className="sub" style={{ fontSize: 13, color: 'var(--text-3)' }}>{tr('Glissez la molette vers le haut ou le bas')}</span>
       </div>
       {eq.type === 'cuisson' && status !== 'rouge' && (
         <div className="group">
-          <label className="row" style={{ fontSize: 16 }}><input type="checkbox" checked={probe} onChange={(e) => setProbe(e.target.checked)} style={{ width: 22, height: 22, accentColor: 'var(--blue)' }} /> Sonde désinfectée avant la mesure</label>
-          <label className="row" style={{ fontSize: 16 }}><input type="checkbox" checked={hold2} onChange={(e) => setHold2(e.target.checked)} style={{ width: 22, height: 22, accentColor: 'var(--blue)' }} /> Température maintenue au moins 2 minutes (BPHR 2.4.4)</label>
+          <label className="row" style={{ fontSize: 16 }}><input type="checkbox" checked={probe} onChange={(e) => setProbe(e.target.checked)} style={{ width: 22, height: 22, accentColor: 'var(--blue)' }} /> {tr('Sonde désinfectée avant la mesure')}</label>
+          <label className="row" style={{ fontSize: 16 }}><input type="checkbox" checked={hold2} onChange={(e) => setHold2(e.target.checked)} style={{ width: 22, height: 22, accentColor: 'var(--blue)' }} /> {tr('Température maintenue au moins 2 minutes (BPHR 2.4.4)')}</label>
         </div>)}
       <div className="error" role="alert">{error}</div>
       <div style={{ marginTop: 'auto' }}>
         {status === 'rouge'
-          ? <button className="btn btn-danger" onClick={() => setStep('ecart')}>Continuer · action corrective</button>
-          : <button className="btn btn-primary" disabled={eq.type === 'cuisson' && (!hold2 || !probe)} onClick={save}>Enregistrer</button>}
+          ? <button className="btn btn-danger" onClick={() => setStep('ecart')}>{tr('Continuer · action corrective')}</button>
+          : <button className="btn btn-primary" disabled={eq.type === 'cuisson' && (!hold2 || !probe)} onClick={save}>{tr('Enregistrer')}</button>}
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useT } from '../i18n';
 import { useEffect, useState } from 'react';
 import type { Api, Session, StandAlert } from '../api/types';
 import { formatDelay, worstAlert } from '../domain/rules';
@@ -5,6 +6,7 @@ import { formatDelay, worstAlert } from '../domain/rules';
 const BG = { ok: '#FFFFFF', jaune: 'var(--yellow-screen)', rouge: 'var(--red-screen)' } as const;
 
 export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; onSession: (s: Session) => void; demoHint?: string; onDirection?: () => void }) {
+  const t = useT();
   const [now, setNow] = useState(new Date());
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -24,7 +26,7 @@ export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; 
     setCode(c);
     if (c.length === 4) {
       try { onSession(await api.openSession(c)); }
-      catch (e) { setError((e as Error).message); }
+      catch (e) { setError(t((e as Error).message)); }
       finally { setCode(''); }
     }
   };
@@ -49,14 +51,14 @@ export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; 
                 <span className="grow">
                   <span style={{ fontSize: 15, fontWeight: 600 }}>{a.title}</span>
                   <span className={`pill ${a.alert}`}>{formatDelay(a.dueAt, now)}</span>
-                  <span className="sub" style={{ fontSize: 12 }}>Peut le faire : {a.who}</span>
+                  <span className="sub" style={{ fontSize: 12 }}>{t('Peut le faire :')} {a.who}</span>
                 </span>
               </div>
             ))}
           </div>
         )}
 
-        <div style={{ fontSize: 17 }}>Tapez votre code</div>
+        <div style={{ fontSize: 17 }}>Tapez votre code<div style={{ fontSize: 13, opacity: 0.7 }}>Escriba su código · Enter your code</div></div>
         <div className={`dots ${error ? 'shake' : ''}`} aria-label={`${code.length} chiffres saisis`}>
           {[0, 1, 2, 3].map((i) => <span key={i} className={`dot ${i < code.length ? 'on' : ''}`} />)}
         </div>
@@ -67,7 +69,7 @@ export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; 
               <button key={i} className={`key ${k === '⌫' ? 'ghost' : ''}`} aria-label={k === '⌫' ? 'Effacer' : k} onClick={() => press(k)}>{k}</button>)}
         </div>
         {demoHint && <div className="demo-banner">{demoHint}</div>}
-        {demoHint && onDirection && <button className="link" style={{ fontSize: 13 }} onClick={onDirection}>Démo : ouvrir l’espace Direction (iPhone)</button>}
+        {demoHint && onDirection && <button className="link" style={{ fontSize: 13 }} onClick={onDirection}>{t('Démo : ouvrir l’espace Direction (iPhone)')}</button>}
       </div>
     </div>
   );

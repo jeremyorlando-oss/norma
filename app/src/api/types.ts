@@ -4,6 +4,7 @@ import type { DayReport } from '../report/dailyReport';
 export interface Session {
   token: string;
   memberId: string;
+  langue: 'fr' | 'es' | 'en';
   prenom: string;
   poste: string;
   arrivee: boolean;      // true = arrivée pointée par ce code

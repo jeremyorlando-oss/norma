@@ -1,3 +1,4 @@
+import { LangProvider } from './i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Api, Session } from './api/types';
 import { Allergenes } from './screens/Allergenes';
@@ -47,7 +48,7 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
 
   const back = () => setView('home');
   return (
-    <>
+    <LangProvider lang={depannage ? 'fr' : session.langue}>
       {/* D36 : bouton « off » discret sur tous les écrans de session */}
       <button className="off" aria-label="Fermer la session" onClick={close}
         style={{ position: 'fixed', top: 'max(16px, env(safe-area-inset-top))', right: 16, zIndex: 10 }}>
@@ -69,6 +70,6 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
       {view === 'preparations' && <Preparations api={api} session={session} onBack={back} />}
       {view === 'allergenes' && <Allergenes api={api} onBack={back} />}
       {view === 'signaler' && <Signaler api={api} session={session} onBack={back} />}
-    </>
+    </LangProvider>
   );
 }

@@ -55,3 +55,9 @@ export function formatDelay(dueAt: Date, now: Date): string {
   const min = Math.round((dueAt.getTime() - now.getTime()) / 60_000);
   return min < 0 ? `En retard de ${-min} min` : `À faire dans ${min} min`;
 }
+
+/** Version traduisible de formatDelay : [texte, variables]. */
+export function formatDelayParts(dueAt: Date, now: Date): [string, { n: number }] {
+  const min = Math.round((dueAt.getTime() - now.getTime()) / 60_000);
+  return min < 0 ? ['En retard de {n} min', { n: -min }] : ['À faire dans {n} min', { n: min }];
+}

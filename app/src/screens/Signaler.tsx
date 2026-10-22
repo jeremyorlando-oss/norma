@@ -1,3 +1,4 @@
+import { useT } from '../i18n';
 import { useState } from 'react';
 import type { Api, NcKind, Session } from '../api/types';
 import { TopBar } from '../components/Controls';
@@ -30,6 +31,7 @@ const KINDS: { kind: NcKind; label: string; steps?: string[] }[] = [
 ];
 
 export function Signaler({ api, session, onBack }: { api: Api; session: Session; onBack: () => void }) {
+  const t = useT();
   const [kind, setKind] = useState<NcKind | null>(null);
   const [text, setText] = useState('');
   const [sent, setSent] = useState(false);
@@ -37,35 +39,35 @@ export function Signaler({ api, session, onBack }: { api: Api; session: Session;
   const k = KINDS.find((x) => x.kind === kind);
 
   const send = async () => {
-    try { await api.signaler(session.token, kind!, text.trim()); setSent(true); } catch (e) { setError((e as Error).message); }
+    try { await api.signaler(session.token, kind!, text.trim()); setSent(true); } catch (e) { setError(t((e as Error).message)); }
   };
 
   if (sent) return (
     <div className="screen">
-      <TopBar title="Signalé" onBack={onBack} />
-      <span className="badge vert" style={{ alignSelf: 'center' }}>✓ Envoyé au chef de cuisine et au manager</span>
+      <TopBar title={t('Signalé')} onBack={onBack} />
+      <span className="badge vert" style={{ alignSelf: 'center' }}>{t('✓ Envoyé au chef de cuisine et au manager')}</span>
       {k?.steps && <>
-        <div className="section-label">À faire maintenant</div>
-        <ol className="group" style={{ margin: 0, padding: '8px 16px 8px 36px', fontSize: 16, lineHeight: '24px' }}>{k.steps.map((s) => <li key={s}>{s}</li>)}</ol>
+        <div className="section-label">{t('À faire maintenant')}</div>
+        <ol className="group" style={{ margin: 0, padding: '8px 16px 8px 36px', fontSize: 16, lineHeight: '24px' }}>{k.steps.map((s) => <li key={s}>{t(s)}</li>)}</ol>
       </>}
-      <div style={{ marginTop: 'auto' }}><button className="btn btn-primary" onClick={onBack}>Terminé</button></div>
+      <div style={{ marginTop: 'auto' }}><button className="btn btn-primary" onClick={onBack}>{t('Terminé')}</button></div>
     </div>
   );
 
   return (
     <div className="screen">
-      <TopBar title="Signaler un problème" onBack={onBack} />
-      <div className="group" role="radiogroup" aria-label="Type de problème">
+      <TopBar title={t('Signaler un problème')} onBack={onBack} />
+      <div className="group" role="radiogroup" aria-label={t('Type de problème')}>
         {KINDS.map((x) => (
           <button key={x.kind} role="radio" aria-checked={kind === x.kind} className="row" onClick={() => setKind(x.kind)}
             style={{ width: '100%', border: 'none', background: '#fff', fontSize: 17, textAlign: 'left', justifyContent: 'space-between' }}>
-            {x.label}<span style={{ color: 'var(--blue)', fontWeight: 600 }}>{kind === x.kind ? '✓' : ''}</span></button>))}
+            {t(x.label)}<span style={{ color: 'var(--blue)', fontWeight: 600 }}>{kind === x.kind ? '✓' : ''}</span></button>))}
       </div>
-      <label className="section-label" htmlFor="desc">Que s’est-il passé ?</label>
-      <textarea id="desc" value={text} onChange={(e) => setText(e.target.value)} placeholder="Ex. : client a trouvé un morceau de plastique dans un completo Royal"
+      <label className="section-label" htmlFor="desc">{t('Que s’est-il passé ?')}</label>
+      <textarea id="desc" value={text} onChange={(e) => setText(e.target.value)} placeholder={t('Ex. : client a trouvé un morceau de plastique dans un completo Royal')}
         style={{ minHeight: 96, border: 'none', borderRadius: 12, padding: '12px 16px', fontFamily: 'inherit', fontSize: 16, resize: 'vertical' }} />
       <div className="error" role="alert">{error}</div>
-      <div style={{ marginTop: 'auto' }}><button className="btn btn-danger" disabled={!kind || text.trim().length < 5} onClick={send}>Envoyer le signalement</button></div>
+      <div style={{ marginTop: 'auto' }}><button className="btn btn-danger" disabled={!kind || text.trim().length < 5} onClick={send}>{t('Envoyer le signalement')}</button></div>
     </div>
   );
 }

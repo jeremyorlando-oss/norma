@@ -37,3 +37,5 @@
 | Corrections de l'audit v1 (checklists, formation + quiz, maintien au chaud 3 h, réchauffe 2 min, origine viande, intoxication, produits entamés, transport propre, documents, revue HACCP) | ✅ | ✅ | Démo ; base de données : migration 005 au branchement serveur |
 
 Tests : 74 vérifications automatiques, toutes réussies (22.10.2026), sur base PostgreSQL de test locale.
+
+- Traductions ES/EN de l’app stand (langue choisie par membre ; Direction et rapports en français). Textes à relire par une personne de langue maternelle ; produits de nettoyage traduits quand les vraies données seront saisies.

@@ -1,7 +1,9 @@
+import { useT } from '../i18n';
 import type { ReactNode } from 'react';
 
 export function TopBar({ title, onBack }: { title: string; onBack: () => void }) {
-  return <div className="topbar"><button className="link" onClick={onBack}>‹ Retour</button><span className="title">{title}</span><span style={{ width: 70 }} /></div>;
+  const t = useT();
+  return <div className="topbar"><button className="link" onClick={onBack}>‹ {t('Retour')}</button><span className="title">{title}</span><span style={{ width: 70 }} /></div>;
 }
 
 export function Segmented<T extends string>({ value, options, onChange, label }:
