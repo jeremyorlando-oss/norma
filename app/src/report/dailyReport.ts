@@ -41,23 +41,23 @@ const sectionBand = (n: number, title: string, summary: string, bad: boolean | '
   // @ts-expect-error pdfmake accepte « id » sur tout nœud (utilisé par pageBreakBefore)
   id: `band-${n}`,
   table: { widths: ['*', 'auto'], body: [[
-    { text: `${n}. ${title}`, bold: true, fontSize: 12, color: bad === 'warn' ? '#000000' : bad ? C.bandBadText : C.bandOkText, margin: [6, 4, 0, 4] },
-    { text: summary, fontSize: 10, bold: !!bad, color: bad === 'warn' ? '#000000' : bad ? C.bandBadText : C.bandOkText, alignment: 'right', margin: [0, 5, 6, 4] }]] },
+    { text: `${n}. ${title}`, bold: true, fontSize: 10.5, color: bad === 'warn' ? '#000000' : bad ? C.bandBadText : C.bandOkText, margin: [6, 2, 0, 2] },
+    { text: summary, fontSize: 10, bold: !!bad, color: bad === 'warn' ? '#000000' : bad ? C.bandBadText : C.bandOkText, alignment: 'right', margin: [0, 3, 6, 2] }]] },
   layout: { hLineWidth: () => 0, vLineWidth: () => 0, fillColor: () => (bad === 'warn' ? C.bandWarn : bad ? C.bandBad : C.bandOk) },
-  margin: [0, 16, 0, 6],
+  margin: [0, 9, 0, 3],
 });
 
 /** Tableau aéré : lignes alternées, ligne entière teintée en rouge si écart. */
 function table(headers: string[], rows: Row[], widths: (string | number)[], empty: string, badRows: boolean[] = []): Content {
   if (rows.length === 0) return { text: empty, italics: true, color: C.grey, margin: [6, 0, 0, 0] };
   return {
-    table: { headerRows: 1, keepWithHeaderRows: 1, dontBreakRows: true, widths, body: [headers.map((h) => ({ text: h.toUpperCase(), fontSize: 7.5, bold: true, color: C.grey })), ...rows] },
+    table: { headerRows: 1, keepWithHeaderRows: 1, dontBreakRows: true, widths, body: [headers.map((h) => ({ text: h.toUpperCase(), fontSize: 7, bold: true, color: C.grey })), ...rows] },
     layout: {
       hLineWidth: (i: number) => (i === 1 ? 1 : 0), vLineWidth: () => 0, hLineColor: () => '#999999',
       fillColor: (r: number) => (r === 0 ? null : badRows[r - 1] ? C.redBg : r % 2 === 0 ? C.zebra : null),
-      paddingTop: () => 5, paddingBottom: () => 5, paddingLeft: () => 6, paddingRight: () => 6,
+      paddingTop: () => 2.5, paddingBottom: () => 2.5, paddingLeft: () => 5, paddingRight: () => 5,
     },
-    fontSize: 9.5,
+    fontSize: 8.8,
   };
 }
 
@@ -96,33 +96,33 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
 
   return {
     pageSize: 'A4',
-    pageMargins: [40, 56, 40, 50],
+    pageMargins: [34, 44, 34, 40],
     // Un bandeau de section ne reste jamais seul en bas de page
-    pageBreakBefore: (node) => typeof node.id === 'string' && node.id.startsWith('band-') && node.startPosition.top > 841.89 - 50 - 150,
+    pageBreakBefore: (node) => typeof node.id === 'string' && node.id.startsWith('band-') && node.startPosition.top > 841.89 - 40 - 110,
     info: { title: `Rapport HACCP ${d.date.toISOString().slice(0, 10)}`, author: d.company.name },
-    header: (page) => (page === 1 ? null : { text: `${d.company.name}  ·  Rapport HACCP du ${d.date.toLocaleDateString('fr-CH')}  ·  ${d.event}`, fontSize: 8, color: C.grey, margin: [40, 26, 40, 0] }),
+    header: (page) => (page === 1 ? null : { text: `${d.company.name}  ·  Rapport HACCP du ${d.date.toLocaleDateString('fr-CH')}  ·  ${d.event}`, fontSize: 8, color: C.grey, margin: [34, 20, 34, 0] }),
     footer: (page, pages) => ({
       columns: [{ text: `Code de vérification ${code}`, fontSize: 8, color: C.grey }, { text: `Page ${page} / ${pages}`, fontSize: 8, color: C.grey, alignment: 'right' }],
-      margin: [40, 18, 40, 0],
+      margin: [34, 14, 34, 0],
     }),
     content: [
       // ---------- Page 1 : en-tête + synthèse lisible en 10 secondes
       { columns: [
         { stack: [{ text: 'RAPPORT JOURNALIER HACCP', fontSize: 9, bold: true, color: C.grey, characterSpacing: 1 },
-          { text: d.company.name, fontSize: 20, bold: true }, { text: d.event, fontSize: 11 }] },
+          { text: d.company.name, fontSize: 17, bold: true }, { text: d.event, fontSize: 11 }] },
         { stack: [{ text: cap(day), fontSize: 13, bold: true, alignment: 'right' },
           { text: `Responsable HACCP : ${d.company.responsable}`, fontSize: 9, alignment: 'right', color: C.grey },
           { text: `${d.company.address} · ${d.company.phone}`, fontSize: 9, alignment: 'right', color: C.grey }] },
       ] },
       { table: { widths: ['*', 'auto'], body: [[
-        { text: verdict.t, fontSize: 14, bold: true, color: verdict.c, margin: [10, 12, 10, 9] },
-        { stack: [{ text: [{ text: String(score), fontSize: 24, bold: true }, { text: ' / 100', fontSize: 11 }], color: verdict.c, alignment: 'right' },
-          { text: 'score du jour', fontSize: 8, color: C.grey, alignment: 'right' }], margin: [10, 5, 10, 5] }]] },
-        layout: { hLineWidth: () => 0, vLineWidth: () => 0, fillColor: () => verdict.bg }, margin: [0, 16, 0, 10] },
+        { text: verdict.t, fontSize: 12.5, bold: true, color: verdict.c, margin: [10, 9, 10, 6] },
+        { stack: [{ text: [{ text: String(score), fontSize: 20, bold: true }, { text: ' / 100', fontSize: 11 }], color: verdict.c, alignment: 'right' },
+          { text: 'score du jour', fontSize: 8, color: C.grey, alignment: 'right' }], margin: [10, 3, 10, 3] }]] },
+        layout: { hLineWidth: () => 0, vLineWidth: () => 0, fillColor: () => verdict.bg }, margin: [0, 10, 0, 6] },
       { text: 'SYNTHÈSE DU JOUR', fontSize: 9, bold: true, color: C.grey, characterSpacing: 1, margin: [0, 0, 0, 4] },
       table(['Contrôle', 'Volume', 'Résultat'], synth.map(([a, b, k, t]) => [{ text: a, bold: true }, b, badge(k, t)]), ['*', 120, 150], ''),
-      { text: 'Le détail de chaque contrôle suit, dans l’ordre du classeur. Les lignes sur fond rouge sont des écarts ; leur action corrective figure au point 7. Seuils et mode de lecture : dernière page.',
-        fontSize: 9, color: C.grey, margin: [0, 8, 0, 0] },
+      { text: 'Le détail de chaque contrôle suit, dans l’ordre du classeur. Les lignes sur fond rouge sont des écarts ; leur action corrective figure au point 7. Seuils et mode de lecture : en fin de rapport.',
+        fontSize: 8, color: C.grey, margin: [0, 4, 0, 0] },
 
       // ---------- Détail
       sectionBand(1, 'Présence et prise de poste', notApte ? `${notApte} non apte / non faite` : 'Tous aptes', !!notApte),
@@ -160,35 +160,38 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
       ...(d.ncs.length === 0 ? [{ text: 'Aucune non-conformité ce jour.', italics: true, color: C.grey, margin: [6, 0, 0, 0] } as Content] : d.ncs.map((n): Content => ({
         table: { widths: ['*'], body: [[{ stack: [
           { columns: [{ text: `${n.opened}  ·  ${n.kind}`, bold: true, fontSize: 10 }, { ...(badge(n.status === 'Clôturée' ? 'ok' : 'bad', n.status) as object), alignment: 'right', fontSize: 9 } as Content] },
-          { text: n.description, fontSize: 10, margin: [0, 3, 0, 4] },
-          { ol: n.steps.length ? n.steps : ['Aucune action enregistrée'], fontSize: 9, color: '#222222' },
+          { text: n.description, fontSize: 9, margin: [0, 2, 0, 2] },
+          { ol: n.steps.length ? n.steps : ['Aucune action enregistrée'], fontSize: 8.5, color: '#222222' },
           { text: `Signalé par ${n.by}`, fontSize: 8, color: C.grey, margin: [0, 4, 0, 0] },
-        ], margin: [8, 6, 8, 6] }]] },
+        ], margin: [8, 4, 8, 4] }]] },
         layout: { hLineWidth: () => 0, vLineWidth: (i: number) => (i === 0 ? 3 : 0), vLineColor: () => (n.status === 'Clôturée' ? C.green : '#D9707D'), fillColor: () => C.zebra },
-        margin: [0, 0, 0, 8], unbreakable: true,
+        margin: [0, 0, 0, 5], unbreakable: true,
       }))),
 
-      { text: 'Visa du responsable', fontSize: 11, bold: true, margin: [0, 18, 0, 8] },
-      { table: { widths: ['*', '*', '*'], body: [[
-        { text: 'Nom', fontSize: 8, color: C.grey, margin: [0, 0, 0, 22] }, { text: 'Date', fontSize: 8, color: C.grey }, { text: 'Signature', fontSize: 8, color: C.grey }]] },
-        layout: { hLineWidth: (i: number) => (i === 1 ? 0.8 : 0), vLineWidth: () => 0 } },
-
-      // ---------- Annexe : lecture et seuils
-      { text: 'Annexe · Comment lire ce rapport', fontSize: 13, bold: true, pageBreak: 'before', margin: [0, 0, 0, 8] },
-      { ul: [
-        'Le rapport reprend tous les contrôles enregistrés ce jour dans l’application NORMA, dans l’ordre du classeur HACCP du stand.',
-        'Chaque ligne indique l’heure, la valeur et la personne qui a fait le contrôle. « (iPhone …) » signale une saisie de dépannage depuis le téléphone du Gérant ou du Manager.',
-        'Les lignes sur fond rouge sont des écarts ; l’action corrective correspondante est détaillée au point 7.',
-        'Les enregistrements ne peuvent être ni modifiés ni supprimés ; une correction apparaît comme une nouvelle ligne.',
-        'L’état de santé du personnel est enregistré uniquement comme « apte » ou « non apte », sans aucun symptôme.',
-        'Le code de vérification en bas de page correspond aux données du jour : un document modifié après coup ne correspond plus au code conservé dans l’application.',
-        'Score du jour (indicateur interne, sans valeur réglementaire) : pourcentage des contrôles conformes, moins 10 points par non-conformité encore ouverte en fin de journée.',
-        'L’application aide à l’autocontrôle ; elle ne remplace pas la responsabilité de l’exploitant.',
-      ], fontSize: 10, lineHeight: 1.3, margin: [0, 0, 0, 14] },
-      { text: 'Seuils appliqués et sources', fontSize: 13, bold: true, margin: [0, 0, 0, 8] },
-      table(['Contrôle', 'Seuil', 'Source'], d.thresholds.map((t) => [{ text: t.label, bold: true }, t.value, t.source]), ['*', 90, '*'], '—'),
-      { text: '« Règle interne » : seuil plus strict que l’exigence officielle, ou fixé par l’entreprise en l’absence de valeur officielle.', fontSize: 9, color: C.grey, margin: [0, 6, 0, 0] },
+      { columns: [
+        { width: '*', stack: [
+          { text: 'Comment lire ce rapport', fontSize: 9, bold: true, margin: [0, 0, 0, 2] },
+          { ul: [
+            'Tous les contrôles du jour, dans l’ordre du classeur HACCP ; heure, valeur et auteur pour chaque ligne.',
+            'Fond rouge = écart (action corrective au point 7) ; jaune = à surveiller ; « (iPhone …) » = saisie de dépannage.',
+            'Enregistrements non modifiables : une correction apparaît comme une nouvelle ligne. Santé : apte / non apte uniquement.',
+            'Code de vérification : correspond aux données du jour ; un document modifié ne correspond plus au code conservé.',
+            'Score du jour : indicateur interne sans valeur réglementaire (% de contrôles conformes, −10 par non-conformité ouverte).',
+            'L’application aide à l’autocontrôle ; elle ne remplace pas la responsabilité de l’exploitant.',
+          ], fontSize: 7.3, color: '#333333' },
+        ] },
+        { width: 230, stack: [
+          { text: 'Seuils appliqués et sources', fontSize: 9, bold: true, margin: [0, 0, 0, 2] },
+          { table: { widths: ['*', 'auto'], body: d.thresholds.map((t) => [{ text: [{ text: t.label, bold: true }, { text: ` · ${t.source}`, color: C.grey }], fontSize: 7 }, { text: t.value, fontSize: 7.3, bold: true }]) },
+            layout: { hLineWidth: () => 0.3, vLineWidth: () => 0, hLineColor: () => '#CCCCCC', paddingTop: () => 1.5, paddingBottom: () => 1.5 } },
+        ] },
+      ], columnGap: 14, margin: [0, 12, 0, 0], unbreakable: true },
+      { columns: [
+        { text: 'Visa du responsable', fontSize: 9, bold: true, width: 110, margin: [0, 10, 0, 0] },
+        { table: { widths: ['*', 90, '*'], body: [[{ text: 'Nom', fontSize: 7, color: C.grey, margin: [0, 0, 0, 14] }, { text: 'Date', fontSize: 7, color: C.grey }, { text: 'Signature', fontSize: 7, color: C.grey }]] },
+          layout: { hLineWidth: (i: number) => (i === 1 ? 0.8 : 0), vLineWidth: () => 0 } },
+      ], margin: [0, 8, 0, 0], unbreakable: true },
     ],
-    defaultStyle: { fontSize: 10, lineHeight: 1.15 },
+    defaultStyle: { fontSize: 9, lineHeight: 1.1 },
   };
 }
