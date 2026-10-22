@@ -1,3 +1,4 @@
+import { Notice } from './screens/Notice';
 import { LangProvider } from './i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Api, Session } from './api/types';
@@ -16,7 +17,7 @@ import { PrisePoste } from './screens/PrisePoste';
 import { Releve } from './screens/Releve';
 import { SessionHome, type Target } from './screens/SessionHome';
 
-type View = 'home' | 'prise' | 'formation' | Target;
+type View = 'home' | 'notice' | 'prise' | 'formation' | Target;
 const IDLE_MS = 2 * 60_000;   // D35 : fermeture après 2 min sans activité
 
 export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
@@ -44,7 +45,7 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
   if (mode === 'direction' && !session) return <Direction api={api} onLogout={() => setMode('stand')}
     onDepannage={(s) => { setDepannage(true); setSession(s); setView(s.aptToday ? 'home' : 'prise'); }} />;
   if (!session) return <Pointage api={api} demoHint={demoHint} onDirection={() => setMode('direction')}
-    onSession={(s) => { setSession(s); setView(!s.aptToday ? 'prise' : !s.trained ? 'formation' : 'home'); }} />;
+    onSession={(s) => { setSession(s); setView(!s.privacyAck ? 'notice' : !s.aptToday ? 'prise' : !s.trained ? 'formation' : 'home'); }} />;
 
   const back = () => setView('home');
   return (
@@ -56,6 +57,7 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
           <path d="M12 3v9" /><path d="M6.3 7.2a8 8 0 1 0 11.4 0" />
         </svg>
       </button>
+      {view === 'notice' && <Notice api={api} session={session} onDone={() => { setSession({ ...session, privacyAck: true }); setView(!session.aptToday ? 'prise' : !session.trained ? 'formation' : 'home'); }} />}
       {view === 'prise' && <PrisePoste api={api} session={session} onDone={(ok) => { setSession({ ...session, aptToday: ok }); setView(session.trained ? 'home' : 'formation'); }} />}
       {view === 'formation' && <Formation api={api} session={session} onDone={() => { setSession({ ...session, trained: true }); back(); }} />}
       {view === 'checklist' && <Checklist api={api} session={session} onBack={back} />}

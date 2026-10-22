@@ -10,6 +10,7 @@ export interface Session {
   arrivee: boolean;      // true = arrivée pointée par ce code
   droits: Right[];
   aptToday: boolean;     // prise de poste conforme faite aujourd'hui
+  privacyAck: boolean;  // notice LPD lue (version en cours)
   trained: boolean;      // formation / briefing validé (quiz réussi)
 }
 
@@ -123,6 +124,8 @@ export interface Api {
   setPosteRights(token: string, poste: string, rights: Right[]): Promise<void>;
   extraRights(): Promise<Record<string, Right[]>>;
   setExtraRights(token: string, memberId: string, rights: Right[]): Promise<void>;
+  ackPrivacy(token: string): Promise<void>;
+  privacyAcks(): Promise<{ name: string; at: string }[]>;
   // Événements
   events(): Promise<EventInfo[]>;
   currentEvent(now: Date): Promise<EventInfo | null>;

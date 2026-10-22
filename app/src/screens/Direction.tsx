@@ -72,6 +72,11 @@ function Documents({ api, session }: { api: Api; session: Session }) {
             <span className={`pill ${col[d.status]}`}>{txt[d.status]}</span></div>))}
       </div>
       <div className="group">
+        <button className="row" style={rowBtn} onClick={async () => { const { downloadPrivacyNotice } = await import('../report/download'); await downloadPrivacyNotice(await api.privacyAcks()); }}>
+          <span className="grow"><span className="main" style={{ fontSize: 16 }}>Notice protection des données (PDF)</span>
+          <span className="sub">FR · ES · EN, avec la liste des lectures confirmées · à mettre dans le classeur</span></span>›</button>
+      </div>
+      <div className="group">
         <div className="row"><span className="grow"><span className="main" style={{ fontSize: 16 }}>Revue du plan HACCP</span>
           <span className="sub">{review ? `Dernière revue : ${review.toLocaleDateString('fr-CH')}` : 'Aucune revue enregistrée · à faire au moins 1× par an et à chaque changement (menu, équipement, incident)'}</span></span>
           {session.droits.includes('reglages_gerant') && <button className="link" style={{ fontSize: 15 }} onClick={() => api.haccpReview(session.token).then(setReview)}>Revue faite</button>}</div>

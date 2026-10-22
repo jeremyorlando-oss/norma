@@ -12,3 +12,8 @@ export async function downloadDailyReport(data: DayReport) {
   const code = await verificationCode(data);
   pdfMake.createPdf(buildDailyReport(data, code)).download(`NORMA-rapport-${data.date.toISOString().slice(0, 10)}.pdf`);
 }
+
+export async function downloadPrivacyNotice(acks: { name: string; at: string }[]) {
+  const { buildPrivacyPdf } = await import('./privacyPdf');
+  pdfMake.createPdf(buildPrivacyPdf(acks)).download('NORMA-notice-protection-donnees.pdf');
+}

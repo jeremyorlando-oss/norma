@@ -55,6 +55,7 @@ export function createDemoApi(): Api {
   ];
   const catalog = new Map<string, { product: string; supplier: string }>();
   const trained = new Set<string>(['m1']);
+  const privacy = new Map<string, Date>([['m1', ago(60 * 24 * 3)]]);   // notice LPD lue
   const checklists = new Map<string, string>();      // mode -> jour fait (montage : id de l'événement)
   const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const addDays = (d: Date, n: number) => { const x = dayStart(d); x.setDate(x.getDate() + n); return x; };
@@ -140,7 +141,7 @@ export function createDemoApi(): Api {
       if (arrivee) clockedIn.set(m.id, new Date());
       const token = crypto.randomUUID();
       sessions.set(token, { memberId: m.id, last: Date.now() });
-      const s: Session = { token, memberId: m.id, langue: m.lang, prenom: m.prenom, poste: m.poste, arrivee, droits: rightsOf(m), aptToday: aptToday(m.id), trained: trained.has(m.id) };
+      const s: Session = { token, memberId: m.id, langue: m.lang, prenom: m.prenom, poste: m.poste, arrivee, droits: rightsOf(m), aptToday: aptToday(m.id), privacyAck: privacy.has(m.id), trained: trained.has(m.id) };
       return s;
     },
     async closeSession(token) { sessions.delete(token); },
@@ -241,7 +242,7 @@ export function createDemoApi(): Api {
       if (!['Gérant', 'Manager'].includes(m.poste)) throw new Error('Espace Direction réservé au Gérant et au Manager');
       const token = crypto.randomUUID();
       sessions.set(token, { memberId: m.id, last: Date.now(), iphone: true });   // pas d'expiration courte sur l'iPhone (Face ID)
-      return { token, memberId: m.id, langue: 'fr', prenom: m.prenom, poste: m.poste, arrivee: false, droits: rightsOf(m), aptToday: aptToday(m.id), trained: true };
+      return { token, memberId: m.id, langue: 'fr', prenom: m.prenom, poste: m.poste, arrivee: false, droits: rightsOf(m), aptToday: aptToday(m.id), privacyAck: true, trained: true };
     },
     async nonconformities() { return ncs.map((n) => ({ ...n, steps: [...n.steps] })); },
     async ncStep(token, ncId, step, content) {
@@ -351,6 +352,8 @@ export function createDemoApi(): Api {
       if (!can(m, 'reglages_gerant')) throw new Error('Seul le Gérant peut modifier les droits');
       extras.set(memberId, rights.filter((r) => r !== 'reglages_gerant'));
     },
+    async ackPrivacy(token) { const m = member(token); privacy.set(m.id, new Date()); },
+    async privacyAcks() { return DEMO_MEMBERS.filter((m) => privacy.has(m.id)).map((m) => ({ name: `${m.prenom} (${m.poste})`, at: privacy.get(m.id)!.toLocaleString('fr-CH') })); },
     async events() { return [...events].sort((a, b) => b.start.getTime() - a.start.getTime()).map((e) => ({ ...e })); },
     async currentEvent(now) { const e = current(now); return e ? { ...e } : null; },
     async saveEvent(token, input) {

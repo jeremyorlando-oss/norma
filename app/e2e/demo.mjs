@@ -14,6 +14,7 @@ const type = async c => { for (const k of c) await p.getByRole('button', { name:
 await type('0000'); await p.waitForTimeout(200);
 console.log('code faux:', await p.getByRole('alert').first().innerText());
 await type('4827'); await p.waitForTimeout(300);
+await shot('2a-notice'); console.log('notice LPD:', await p.locator('.h1').innerText()); await p.getByRole('button', { name: 'J’ai lu et compris' }).click(); await p.waitForTimeout(150);
 for (const g of await p.getByRole('radiogroup').all()) await g.getByRole('radio', { name: 'Oui' }).click();
 await shot('2-prise'); await p.getByRole('button', { name: 'Commencer mon service' }).click();
 const formation = async () => {
@@ -78,6 +79,7 @@ console.log('étiquette:', (await p.locator('.print-label b').nth(1).innerText()
 await shot('9-etiquette');
 await p.getByRole('button', { name: 'Fermer la session' }).click(); await p.waitForTimeout(200);
 await type('5913'); await p.waitForTimeout(300);
+console.log('notice EN:', await p.locator('.h1').innerText()); await p.getByRole('button', { name: 'I have read and understood' }).click(); await p.waitForTimeout(150);
 for (const g of await p.getByRole('radiogroup').all()) await g.getByRole('radio', { name: 'Yes' }).click();
 await p.getByRole('button', { name: 'Start my shift' }).click(); await p.waitForTimeout(200);
 await formation();
@@ -123,6 +125,8 @@ console.log('événements:', (await p.locator('.group').first().locator('.main')
 await p.getByRole('button', { name: /Festival \(exemple\)/ }).click(); await p.waitForTimeout(150); await shot('14-evenement-bilan');
 console.log('bilan relevés:', await p.locator('.group', { hasText: 'Relevés' }).last().innerText().then(t => t.replace(/\n/g, ' ')));
 await p.getByRole('button', { name: '‹ Événements' }).click();
+const [dl3] = await Promise.all([p.waitForEvent('download'), p.getByRole('button', { name: /Notice protection/ }).click()]);
+await dl3.saveAs(process.argv[3] + '/notice.pdf'); console.log('notice PDF:', dl3.suggestedFilename());
 const [dl2] = await Promise.all([p.waitForEvent('download'), p.getByRole('button', { name: /Rapport du jour/ }).click()]);
 await dl2.saveAs(process.argv[3] + '/rapport-evt.pdf');
 await p.getByRole('button', { name: /^Réglages/ }).click(); await p.waitForTimeout(150);
