@@ -36,13 +36,13 @@ const badge = (kind: 'ok' | 'warn' | 'bad', text: string): Content => ({
 });
 
 /** Bandeau de section : titre + résumé chiffré à droite (ex. « 6 relevés · 1 écart »). */
-const sectionBand = (n: number, title: string, summary: string, bad: boolean): Content => ({
+const sectionBand = (n: number, title: string, summary: string, bad: boolean | 'warn'): Content => ({
   // @ts-expect-error pdfmake accepte « id » sur tout nœud (utilisé par pageBreakBefore)
   id: `band-${n}`,
   table: { widths: ['*', 'auto'], body: [[
-    { text: `${n}. ${title}`, bold: true, fontSize: 12, color: '#FFFFFF', margin: [6, 4, 0, 4] },
-    { text: summary, fontSize: 10, bold: bad, color: '#FFFFFF', alignment: 'right', margin: [0, 5, 6, 4] }]] },
-  layout: { hLineWidth: () => 0, vLineWidth: () => 0, fillColor: () => (bad ? C.red : C.band) },
+    { text: `${n}. ${title}`, bold: true, fontSize: 12, color: bad === 'warn' ? '#000000' : '#FFFFFF', margin: [6, 4, 0, 4] },
+    { text: summary, fontSize: 10, bold: !!bad, color: bad === 'warn' ? '#000000' : '#FFFFFF', alignment: 'right', margin: [0, 5, 6, 4] }]] },
+  layout: { hLineWidth: () => 0, vLineWidth: () => 0, fillColor: () => (bad === 'warn' ? '#FFD60A' : bad ? C.red : C.band) },
   margin: [0, 16, 0, 6],
 });
 
@@ -67,7 +67,8 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
 
   // Chiffres du jour pour la synthèse et les bandeaux
   const rRed = d.readings.filter((r) => r.status === 'rouge').length;
-  const oilBad = d.oil.filter((o) => o.aspect !== 'Normal' || /changer/i.test(o.actions)).length;
+  const oilBad = d.oil.filter((o) => o.aspect !== 'Normal' || (o.moment !== 'Soir' && /changer/i.test(o.actions))).length;
+  const oilWarn = d.oil.filter((o) => o.moment === 'Soir' && /changer/i.test(o.actions)).length;
   const recBad = d.receptions.filter((r) => r.result !== 'Acceptée').length;
   const notApte = d.attendance.filter((a) => a.apte !== true).length;
   const ncOpen = d.ncs.filter((n) => n.status !== 'Clôturée').length;
@@ -77,7 +78,7 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
   const synth: [string, string, 'ok' | 'warn' | 'bad', string][] = [
     ['Présence et prise de poste', plural(d.attendance.length, 'personne'), notApte ? 'bad' : 'ok', notApte ? `${notApte} non apte / non faite` : 'Tous aptes'],
     ['Températures', plural(d.readings.length, 'relevé'), rRed ? 'bad' : 'ok', rRed ? plural(rRed, 'écart') : 'Conforme'],
-    ['Huile de friture', plural(d.oil.length, 'contrôle'), oilBad ? 'warn' : 'ok', oilBad ? 'À changer / à surveiller' : 'Conforme'],
+    ['Huile de friture', plural(d.oil.length, 'contrôle'), oilBad ? 'bad' : oilWarn ? 'warn' : 'ok', oilBad ? plural(oilBad, 'écart') : oilWarn ? 'Changement prévu demain' : 'Conforme'],
     ['Réceptions', plural(d.receptions.length, 'livraison'), recBad ? 'bad' : 'ok', recBad ? plural(recBad, 'refus') : 'Conforme'],
     ['Nettoyage', plural(d.cleaning.length, 'tâche') + ' faite' + (d.cleaning.length > 1 ? 's' : ''), d.cleaningMissed.length ? 'bad' : 'ok', d.cleaningMissed.length ? plural(d.cleaningMissed.length, 'retard') : 'À jour'],
     ['Préparations et lots', plural(d.lots.length, 'lot'), 'ok', lotsOut ? `${lotsOut} éliminé${lotsOut > 1 ? 's' : ''}` : 'Conforme'],
@@ -127,7 +128,7 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
         [r.time, { text: r.equipment, bold: true }, { text: r.value, bold: true }, r.status === 'rouge' ? badge('bad', 'ÉCART') : r.status === 'jaune' ? badge('warn', 'Limite') : badge('ok', 'OK'), `${r.by}${r.source !== 'Tablette' ? ' (' + r.source + ')' : ''}`]),
         [38, '*', 60, 55, 110], 'Aucun relevé.', d.readings.map((r) => r.status === 'rouge')),
 
-      sectionBand(3, 'Huile de friture', `${plural(d.oil.length, 'contrôle')} · seuils ${thr('huile')}`, !!oilBad),
+      sectionBand(3, 'Huile de friture', `${plural(d.oil.length, 'contrôle')}${oilBad ? ' · ' + plural(oilBad, 'écart') : oilWarn ? ' · changement prévu' : ''}`, oilBad ? true : oilWarn ? 'warn' : false),
       table(['Heure', 'Friteuse', 'Moment', 'Temp.', 'Polaires', 'Aspect', 'Suite donnée', 'Par'], d.oil.map((o) =>
         [o.time, o.fryer, o.moment, o.temp, o.polar, o.aspect === 'Normal' ? 'Normal' : { text: o.aspect, bold: true, color: C.red }, o.actions, o.by]),
         [32, 55, 38, 36, 40, '*', 75, 45], 'Aucun contrôle d’huile.', d.oil.map((o) => o.aspect !== 'Normal')),
