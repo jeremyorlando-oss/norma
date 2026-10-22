@@ -263,6 +263,9 @@ const ROWS: [string, string, string][] = [
   ['Relever les températures dès que possible', 'Registrar las temperaturas lo antes posible', 'Take temperatures as soon as possible'],
   ['Contacter l’organisateur ou le technicien', 'Contactar con el organizador o el técnico', 'Contact the organiser or technician'],
   ['Si la chaîne du froid n’est plus garantie : suspendre la vente', 'Si la cadena de frío ya no está garantizada: suspender la venta', 'If the cold chain is no longer guaranteed: stop selling'],
+  ['Plus de 30 min : relevez la température de chaque frigo, puis décidez de garder ou jeter.', 'Más de 30 min: registre la temperatura de cada nevera y decida si conservar o tirar.', 'Over 30 min: take each fridge’s temperature, then decide to keep or throw away.'],
+  ['Ne pas ouvrir frigos, saladette et congélateur. Limite : 30 min.', 'No abrir neveras, saladette ni congelador. Límite: 30 min.', 'Do not open fridges, salad counter or freezer. Limit: 30 min.'],
+  ['Courant rétabli', 'Corriente restablecida', 'Power restored'],
   ['Problème d’hygiène', 'Problema de higiene', 'Hygiene problem'], ['Autre problème', 'Otro problema', 'Other problem'],
   // — Erreurs du serveur
   ['Acceptation impossible : DLC dépassée', 'No se puede aceptar: fecha de caducidad pasada', 'Cannot accept: use-by date passed'],

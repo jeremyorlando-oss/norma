@@ -2,7 +2,7 @@
 import { dueAlert, isWeakPin, lotCode, readingStatus, useBy, type Right } from '../domain/rules';
 import type { DayReport } from '../report/dailyReport';
 import { checkEntry, FORGOT_AFTER_H, workedMinutes } from '../domain/hours';
-import type { AuditEntry, TimeEntry, EventInfo, EventSummary, AdminDoc, Api, CleaningTask, Dish, Equipment, HotBatch, Lot, Nc, Recipe, Session, StandAlert } from './types';
+import type { Outage, AuditEntry, TimeEntry, EventInfo, EventSummary, AdminDoc, Api, CleaningTask, Dish, Equipment, HotBatch, Lot, Nc, Recipe, Session, StandAlert } from './types';
 
 const ALL: Right[] = ['pointage', 'prise_poste', 'nettoyage', 'signaler_nc', 'allergenes_lecture', 'releves', 'reception',
   'preparations', 'jeter_lot', 'traiter_nc', 'cloturer_nc', 'tableau_bord', 'heures_equipe', 'export', 'equipements',
@@ -47,6 +47,8 @@ export function createDemoApi(): Api {
   const sessions = new Map<string, { memberId: string; last: number; iphone?: boolean }>();
   let fails: number[] = [];
   let lastFridgeReading: Date | null = null;
+  const lastReadingAt = new Map<string, Date>();
+  let outage: (Outage & { ncId: string }) | null = null;
   const openedAt = new Date();
 
   const equipments: Equipment[] = [
@@ -205,6 +207,7 @@ export function createDemoApi(): Api {
       if (!aptToday(m.id)) throw new Error('Prise de poste non conforme ou non faite aujourd’hui');
       const e = equipments.find((x) => x.id === equipmentId)!;
       if (e.id === 'e1') lastFridgeReading = new Date();
+      lastReadingAt.set(e.id, new Date());
       const status = readingStatus(value, e.min, e.max);
       stats.releves++;
       log.readings.push({ time: hm(), equipment: e.name, value: fmt1(value) + ' °C', status, by: m.prenom, source: sessions.get(token)!.iphone ? 'iPhone ' + m.poste : 'Tablette' });
@@ -287,6 +290,15 @@ export function createDemoApi(): Api {
       if (!can(m, 'signaler_nc')) throw new Error('Ce poste ne peut pas signaler');
       const labels: Record<string, string> = { corps_etranger: 'Corps étranger', allergie: 'Réaction allergique', intoxication: 'Plainte / suspicion d’intoxication', coupure_courant: 'Coupure de courant', nuisibles: 'Nuisibles', materiel: 'Matériel', hygiene: 'Hygiène', autre: 'Autre' };
       openNc(labels[kind], description, m.prenom);
+      if (kind === 'coupure_courant' && !(outage && !outage.end)) outage = { start: new Date(), end: null, by: m.prenom, ncId: ncs[0].id };
+    },
+    async outage() { return outage && (!outage.end || Date.now() - outage.end.getTime() < 6 * 3_600_000) ? { start: outage.start, end: outage.end, by: outage.by } : null; },
+    async endOutage(token) {
+      const m = member(token);
+      if (!outage || outage.end) return;
+      outage.end = new Date();
+      const min = Math.round((outage.end.getTime() - outage.start.getTime()) / 60_000);
+      ncs.find((n) => n.id === outage!.ncId)?.steps.push({ step: 'mesure_immediate', content: `Courant rétabli après ${min} min${min > 30 ? ' (plus de 30 min : relevés obligatoires, décider garder ou jeter)' : ''}`, by: m.prenom, at: new Date() });
     },
     async directionLogin(memberId) {
       const m = DEMO_MEMBERS.find((x) => x.id === memberId)!;
@@ -525,6 +537,12 @@ export function createDemoApi(): Api {
       for (const h of hot.filter((x) => !x.ended)) {
         const d = new Date(h.startedAt.getTime() + 3 * 3600_000);
         if (dueAlert(d, now) !== 'ok') list.push({ title: `Maintien au chaud : ${h.product}`, dueAt: d, alert: dueAlert(d, now), who: whoCan('releves') });
+      }
+      if (outage && (!outage.end || now.getTime() - outage.end.getTime() < 6 * 3_600_000)) {
+        const d = outage.end && outage.end.getTime() - outage.start.getTime() < 30 * 60_000 ? outage.end : new Date(outage.start.getTime() + 30 * 60_000);
+        for (const e of equipments.filter((x) => x.type === 'froid_positif' || x.type === 'froid_negatif'))
+          if (!((lastReadingAt.get(e.id)?.getTime() ?? 0) > outage.start.getTime()) && dueAlert(d, now) !== 'ok')
+            list.push({ title: `Relevé après coupure : ${e.name}`, dueAt: d, alert: dueAlert(d, now), who: whoCan('releves') });
       }
       if (checklists.get('ouverture') !== today()) {
         const d = new Date(openedAt.getTime() + 20 * 60_000);

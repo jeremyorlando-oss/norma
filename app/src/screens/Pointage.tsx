@@ -1,4 +1,5 @@
 import { useT } from '../i18n';
+import { OutageBanner } from '../components/OutageBanner';
 import { useEffect, useState } from 'react';
 import type { Api, Session, StandAlert } from '../api/types';
 import { formatDelay, worstAlert } from '../domain/rules';
@@ -45,6 +46,7 @@ export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; 
           <div className="clock">{now.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>
         </div>
 
+        <OutageBanner api={api} />
         {alerts.length > 0 && (
           <div className="group" style={{ width: '100%' }} role="status" aria-live="polite">
             {alerts.map((a) => (

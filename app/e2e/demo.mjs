@@ -101,6 +101,15 @@ console.log('2e code chef → session directe:', await p.locator('.h1').innerTex
 await p.getByRole('button', { name: 'Commencer une pause' }).click(); await p.waitForTimeout(150);
 console.log('pause:', await p.locator('.h1').innerText()); await shot('11b-pause');
 await p.getByRole('button', { name: 'Reprendre le travail' }).click(); await p.waitForTimeout(150);
+await p.getByRole('button', { name: /Signaler/ }).click(); await p.getByRole('radio', { name: 'Coupure de courant' }).click();
+await p.getByLabel('Que s’est-il passé ?').fill('Plus de courant sur tout le stand');
+await p.getByRole('button', { name: 'Envoyer le signalement' }).click(); await p.waitForTimeout(150);
+await p.getByRole('button', { name: 'Terminé' }).click(); await p.waitForTimeout(200);
+console.log('minuteur coupure:', await p.getByRole('alert').filter({ hasText: 'Coupure' }).innerText().then(t => t.split('\n')[0])); await shot('11c-coupure');
+await p.getByRole('button', { name: 'Courant rétabli' }).click(); await p.waitForTimeout(200);
+await p.getByRole('button', { name: 'Fermer la session' }).click(); await p.waitForTimeout(400);
+console.log('alertes après coupure:', (await p.getByText(/^Relevé après coupure/).allInnerTexts()).join(', '));
+await type('4827'); await p.waitForTimeout(300);
 await p.getByRole('button', { name: 'Fermer la session' }).click(); await p.waitForTimeout(150);
 await p.getByRole('button', { name: /espace Direction/ }).click();
 await p.getByRole('button', { name: /Orlando · Gérant/ }).click(); await p.waitForTimeout(200);

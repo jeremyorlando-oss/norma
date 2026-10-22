@@ -1,3 +1,4 @@
+import { OutageBanner } from '../components/OutageBanner';
 import { useT } from '../i18n';
 import { useEffect, useState } from 'react';
 import type { Api, Session } from '../api/types';
@@ -44,6 +45,7 @@ export function SessionHome({ api, session, onOpen, onDepointer, onBreak }:
       {!session.aptToday && session.poste !== 'Gérant' && session.poste !== 'Manager' && (
         <div className="group" style={{ background: 'var(--red-bg)', padding: '12px 16px', fontSize: 14 }}> {tt('Prise de poste non conforme : relevés et préparations bloqués aujourd’hui.')}</div>
       )}
+      <OutageBanner api={api} token={session.token} />
       <div className="tiles">
         {tiles.map((t) => (
           <button key={t.title} className="tile" disabled={!t.target} onClick={() => t.target && onOpen(t.target)}>

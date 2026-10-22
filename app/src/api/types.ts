@@ -86,6 +86,9 @@ export interface InspectorInfo { thresholds: DayReport['thresholds']; documents:
   haccpReview: Date | null; events: { name: string; place: string; dates: string; ofco: string }[] }
 export interface AuditEntry { at: Date; who: string; action: string }
 
+/** Coupure de courant en cours ou récente (chaîne du froid : 30 min max d'interruption, BPHR). */
+export interface Outage { start: Date; end: Date | null; by: string }
+
 /** Contrat commun : implémenté par la démo (mémoire) et par Supabase (fonctions RPC du serveur). */
 export interface Api {
   openSession(pin: string): Promise<Session>;
@@ -148,6 +151,8 @@ export interface Api {
   inspectorDay(inspToken: string, day: Date): Promise<DayReport>;
   inspectorInfo(inspToken: string): Promise<InspectorInfo>;
   auditLog(): Promise<AuditEntry[]>;
+  outage(): Promise<Outage | null>;
+  endOutage(token: string): Promise<void>;
   // Événements
   events(): Promise<EventInfo[]>;
   currentEvent(now: Date): Promise<EventInfo | null>;
