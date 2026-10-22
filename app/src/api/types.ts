@@ -1,4 +1,5 @@
 import type { Alert, Right, Status } from '../domain/rules';
+import type { DayReport } from '../report/dailyReport';
 
 export interface Session {
   token: string;
@@ -85,4 +86,5 @@ export interface Api {
   addMember(token: string, prenom: string, poste: string): Promise<string>;   // renvoie le code, affiché une seule fois
   resetPin(token: string, memberId: string): Promise<string>;
   dayStats(now: Date): Promise<DayStats>;
+  dayReport(now: Date): Promise<DayReport>;
 }

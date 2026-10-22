@@ -37,7 +37,10 @@ export function Direction({ api, onDepannage, onLogout }: { api: Api; onDepannag
         <div className="group">
           <button className="row" style={rowBtn} onClick={() => onDepannage(session)}>
             <span className="grow"><span className="main">Saisie de dépannage</span><span className="sub">Ouvre les écrans du stand · marqué « iPhone » dans le registre</span></span>›</button>
-          <div className="row"><span className="grow"><span className="main">Rapport du jour (PDF)</span><span className="sub">Envoyé chaque soir au Gérant et au Manager · prochaine étape</span></span></div>
+          <button className="row" style={rowBtn} onClick={async () => {
+            const { downloadDailyReport } = await import('../report/download');
+            await downloadDailyReport(await api.dayReport(new Date()));
+          }}><span className="grow"><span className="main">Rapport du jour (PDF)</span><span className="sub">Envoyé automatiquement chaque soir · ici : générer maintenant</span></span>›</button>
           <button className="row" style={{ ...rowBtn, color: 'var(--red)' }} onClick={() => { setSession(null); onLogout(); }}>Se déconnecter</button>
         </div>)}
     </div>

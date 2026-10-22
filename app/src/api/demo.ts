@@ -1,5 +1,6 @@
 // Démo autonome : mêmes règles que le serveur, données en mémoire (rien n'est enregistré).
 import { dueAlert, isWeakPin, lotCode, readingStatus, useBy, type Right } from '../domain/rules';
+import type { DayReport } from '../report/dailyReport';
 import type { Api, CleaningTask, Dish, Equipment, Lot, Nc, Recipe, Session, StandAlert } from './types';
 
 const ALL: Right[] = ['pointage', 'prise_poste', 'nettoyage', 'signaler_nc', 'allergenes_lecture', 'releves', 'reception',
@@ -32,10 +33,14 @@ export function createDemoApi(): Api {
   const clockedIn = new Map<string, Date>();
   const ncs: Nc[] = [];
   const stats = { releves: 0, relevesRouges: 0, nettoyagesFaits: 0, receptions: 0 };
+  const hm = (d = new Date()) => d.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' });
+  const fmt1 = (v: number) => v.toFixed(1).replace('.', ',').replace('-', '−');
+  const log = { readings: [] as DayReport['readings'], oil: [] as DayReport['oil'], receptions: [] as DayReport['receptions'], cleaning: [] as DayReport['cleaning'] };
+  const lotDisposedAt = new Map<string, string>();
   const openNc = (kind: string, description: string, by: string) =>
     ncs.unshift({ id: crypto.randomUUID(), kind, description, openedBy: by, openedAt: new Date(), steps: [], closed: false });
   const fit = new Map<string, { day: string; ok: boolean }>();
-  const sessions = new Map<string, { memberId: string; last: number }>();
+  const sessions = new Map<string, { memberId: string; last: number; iphone?: boolean }>();
   let fails: number[] = [];
   let lastFridgeReading: Date | null = null;
   const openedAt = new Date();
@@ -78,7 +83,7 @@ export function createDemoApi(): Api {
 
   const member = (token: string) => {
     const s = sessions.get(token);
-    if (!s || Date.now() - s.last > 120_000) throw new Error('Session expirée : retapez votre code');
+    if (!s || (!s.iphone && Date.now() - s.last > 120_000)) throw new Error('Session expirée : retapez votre code');
     s.last = Date.now();
     return DEMO_MEMBERS.find((m) => m.id === s.memberId)!;
   };
@@ -113,6 +118,7 @@ export function createDemoApi(): Api {
       if (e.id === 'e1') lastFridgeReading = new Date();
       const status = readingStatus(value, e.min, e.max);
       stats.releves++;
+      log.readings.push({ time: hm(), equipment: e.name, value: fmt1(value) + ' °C', status, by: m.prenom, source: sessions.get(token)!.iphone ? 'iPhone ' + m.poste : 'Tablette' });
       if (status === 'rouge') { stats.relevesRouges++; openNc('Température', `${e.name} : ${value.toFixed(1).replace('.', ',')} °C hors seuil`, m.prenom); }
       return { status };
     },
@@ -122,12 +128,17 @@ export function createDemoApi(): Api {
       if (!can(m, 'nettoyage')) throw new Error('Ce poste n’a pas le droit de valider un nettoyage');
       tasks.find((t) => t.id === taskId)!.lastDone = { by: m.prenom, at: new Date() };
       stats.nettoyagesFaits++;
+      const t = tasks.find((x) => x.id === taskId)!;
+      log.cleaning.push({ time: hm(), item: t.name, product: t.product, by: m.prenom, note: '' });
     },
     async huile(token, i) {
       const m = member(token);
       if (!can(m, 'releves')) throw new Error('Ce poste n’a pas le droit de contrôler l’huile');
       if (!aptToday(m.id)) throw new Error('Prise de poste non conforme ou non faite aujourd’hui');
       const mustChange = (i.polar !== null && i.polar >= 25) || i.defects.length > 0;
+      log.oil.push({ time: hm(), fryer: equipments.find((x) => x.id === i.equipmentId)!.name, moment: i.moment.charAt(0).toUpperCase() + i.moment.slice(1),
+        temp: i.temperature === null ? '—' : i.temperature + ' °C', polar: i.polar === null ? '—' : fmt1(i.polar) + ' %',
+        aspect: i.defects.length ? i.defects.join(', ') : 'Normal', actions: [i.filtered && 'Filtrée', i.changed && 'Changée', mustChange && !i.changed && 'À changer'].filter(Boolean).join(' · ') || '—', by: m.prenom });
       if (mustChange && !i.changed && i.moment !== 'soir') openNc('Huile', 'Huile dégradée non changée (' + i.defects.join(', ') + ')', m.prenom);
       return { mustChange };
     },
@@ -138,6 +149,8 @@ export function createDemoApi(): Api {
       if (i.accepted && new Date(i.dlc) < daysAgo(0)) throw new Error('Acceptation impossible : DLC dépassée');
       if (i.barcode && !catalog.has(i.barcode)) catalog.set(i.barcode, { product: i.product, supplier: i.supplier });
       stats.receptions++;
+      log.receptions.push({ time: hm(), supplier: i.supplier, product: i.product, lot: i.lot, dlc: new Date(i.dlc).toLocaleDateString('fr-CH'), temp: fmt1(i.temperature) + ' °C',
+        result: i.accepted ? 'Acceptée' : 'Refusée : ' + i.refusalReason, by: m.prenom, photo: i.photo });
       if (!i.accepted) openNc('Réception', `${i.product} refusé : ${i.refusalReason}`, m.prenom);
     },
     async scanBarcode(token, code) { member(token); return catalog.get(code) ?? null; },
@@ -164,6 +177,7 @@ export function createDemoApi(): Api {
       const l = lots.find((x) => x.id === lotId)!;
       if (l.disposed) throw new Error('Lot déjà jeté');
       l.disposed = { by: m.prenom, at: new Date() };
+      lotDisposedAt.set(l.id, `Jeté ${hm()} · ${m.prenom}`);
     },
     async dishes() {
       // Exemple à valider avec les étiquettes réelles des produits (D-phase 1, points 3-4)
@@ -192,7 +206,7 @@ export function createDemoApi(): Api {
       const m = DEMO_MEMBERS.find((x) => x.id === memberId)!;
       if (!['Gérant', 'Manager'].includes(m.poste)) throw new Error('Espace Direction réservé au Gérant et au Manager');
       const token = crypto.randomUUID();
-      sessions.set(token, { memberId: m.id, last: Date.now() + 10 * 365 * 86400_000 });   // pas d'expiration courte sur l'iPhone (Face ID)
+      sessions.set(token, { memberId: m.id, last: Date.now(), iphone: true });   // pas d'expiration courte sur l'iPhone (Face ID)
       return { token, memberId: m.id, prenom: m.prenom, poste: m.poste, arrivee: false, droits: POSTES[m.poste], aptToday: aptToday(m.id) };
     },
     async nonconformities() { return ncs.map((n) => ({ ...n, steps: [...n.steps] })); },
@@ -227,6 +241,28 @@ export function createDemoApi(): Api {
       if (t.poste === 'Gérant' && m.poste !== 'Gérant') throw new Error('Le code du Gérant ne peut pas être modifié par le Manager');
       t.pin = newPin();
       return t.pin;
+    },
+    async dayReport(now) {
+      const steps: Record<string, string> = { mesure_immediate: 'Mesure immédiate', evaluation_risque: 'Évaluation du risque', action_corrective: 'Action corrective', verification: 'Vérification', cloture: 'Clôture' };
+      return {
+        company: { name: "ORIGINAL'S COMPLETOS", address: 'Bussigny, Suisse', phone: '078 352 12 02', email: 'info@originalscompletos.ch', responsable: 'Orlando Quispe Oscco' },
+        event: '[Nom de l’événement] · démo', date: now, generatedAt: now,
+        thresholds: [
+          { label: 'Froid positif', value: '0 à 4 °C', source: 'Règle interne (VD : 5 °C max)' },
+          { label: 'Congélateur', value: '≤ −18 °C', source: 'Directive OFCO VD 08.04.2019' },
+          { label: 'Maintien au chaud', value: '≥ 65 °C', source: 'Directive OFCO VD 08.04.2019' },
+          { label: 'Cuisson à cœur', value: '≥ 72 °C', source: 'Règle interne' },
+          { label: 'Huile', value: '≤ 175 °C / < 25 %', source: 'Règle interne (Lab. cantonal SO)' },
+          { label: 'Préparations maison', value: 'J+2, ≤ 4 °C', source: 'Règle interne (D7)' },
+        ],
+        attendance: DEMO_MEMBERS.filter((m) => clockedIn.has(m.id)).map((m) => ({ name: m.prenom, poste: m.poste, arrival: hm(clockedIn.get(m.id)!), departure: null,
+          apte: fit.get(m.id)?.day === today() ? fit.get(m.id)!.ok : null })),
+        readings: log.readings, oil: log.oil, receptions: log.receptions, cleaning: log.cleaning,
+        cleaningMissed: tasks.filter((t) => { const d = due(t); return d && d < now; }).map((t) => ({ item: t.name, due: hm(due(t)!) })),
+        lots: lots.map((l) => ({ lot: l.lotCode, recipe: l.recipeName, by: l.by, useBy: l.useBy.toLocaleDateString('fr-CH'), disposed: lotDisposedAt.get(l.id) ?? (l.disposed ? 'Jeté' : '—') })),
+        ncs: ncs.map((n) => ({ opened: hm(n.openedAt), kind: n.kind, description: n.description, by: n.openedBy, status: n.closed ? 'Clôturée' : 'OUVERTE',
+          steps: n.steps.map((s) => `${hm(s.at)} ${steps[s.step]} : ${s.content} (${s.by})`) })),
+      };
     },
     async dayStats(now) {
       const late = tasks.filter((t) => { const d = due(t); return d && dueAlert(d, now) === 'rouge'; }).length;
