@@ -160,6 +160,13 @@ await p.getByRole('button', { name: /Lucía/ }).click(); await p.getByRole('butt
 await shot('16-reglages-droits'); await p.getByRole('button', { name: '‹ Postes' }).click(); await p.waitForTimeout(100);
 console.log('Lucía:', await p.getByRole('button', { name: /Lucía/ }).innerText().then(t => t.replace(/\n/g, ' ')));
 await p.getByRole('button', { name: '‹ Plus' }).click(); await p.waitForTimeout(100);
+await p.getByRole('button', { name: /^Mode inspecteur/ }).click(); await p.waitForTimeout(250);
+console.log('inspecteur:', await p.locator('.h1').innerText(), '·', await p.locator('.section-label').allInnerTexts().then(t => t.join(', ')));
+console.log('aucun bouton de saisie:', await p.getByRole('button', { name: /Enregistrer|Valider|Accepter/ }).count() === 0); await shot('18-inspecteur');
+await p.getByRole('radio', { name: 'Seuils et plan' }).click(); await p.waitForTimeout(150); await shot('19-inspecteur-plan');
+await p.getByRole('button', { name: 'Terminer le contrôle' }).click(); await p.waitForTimeout(150);
+await p.getByRole('button', { name: /Orlando · Gérant/ }).click(); await p.waitForTimeout(150); await p.getByRole('radio', { name: 'Plus' }).click(); await p.waitForTimeout(150);
+console.log('journal:', await p.locator('.group', { hasText: 'Accès inspecteur' }).last().innerText().then(t => t.split('\n').length + ' lignes'));
 await p.getByRole('button', { name: /Saisie de dépannage/ }).click(); await p.waitForTimeout(150);
 console.log('dépannage → prise de poste:', await p.getByRole('button', { name: 'Commencer mon service' }).count() === 1);
 console.log('erreurs JS:', errs.length ? errs : 'aucune');

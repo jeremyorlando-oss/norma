@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AdminDoc, Api, EventInfo, DayStats, Member, Nc, NcStep, Session } from '../api/types';
+import type { AdminDoc, Api, AuditEntry, EventInfo, InspectorAccess, DayStats, Member, Nc, NcStep, Session } from '../api/types';
 import { Segmented } from '../components/Controls';
 import { Evenements } from './Evenements';
 import { Reglages } from './Reglages';
@@ -11,7 +11,7 @@ const STEP_LABEL: Record<NcStep['step'], string> = { mesure_immediate: 'Mesure i
 const hm = (d: Date) => d.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' });
 
 /** Espace Direction (iPhone Gérant / Manager) : version simplifiée, supervision + dépannage (D30). */
-export function Direction({ api, onDepannage, onLogout }: { api: Api; onDepannage: (s: Session) => void; onLogout: () => void }) {
+export function Direction({ api, onDepannage, onLogout, onInspector }: { api: Api; onDepannage: (s: Session) => void; onLogout: () => void; onInspector: (a: InspectorAccess) => void }) {
   const [session, setSession] = useState<Session | null>(null);
   const [tab, setTab] = useState<Tab>('jour');
   const [reglages, setReglages] = useState(false);
@@ -45,6 +45,8 @@ export function Direction({ api, onDepannage, onLogout }: { api: Api; onDepannag
         <div className="group">
           <button className="row" style={rowBtn} onClick={() => setReglages(true)}>
             <span className="grow"><span className="main">Réglages</span><span className="sub">Matériel · plan de nettoyage · droits des postes</span></span>›</button>
+          {session.droits.includes('export') && <button className="row" style={rowBtn} onClick={async () => onInspector(await api.openInspector(session.token))}>
+            <span className="grow"><span className="main">Mode inspecteur</span><span className="sub">Lecture seule pour un contrôle officiel · se ferme après 2 h</span></span>›</button>}
           <button className="row" style={rowBtn} onClick={() => onDepannage(session)}>
             <span className="grow"><span className="main">Saisie de dépannage</span><span className="sub">Ouvre les écrans du stand · marqué « iPhone » dans le registre</span></span>›</button>
           <button className="row" style={rowBtn} onClick={async () => {
@@ -54,6 +56,7 @@ export function Direction({ api, onDepannage, onLogout }: { api: Api; onDepannag
           <button className="row" style={{ ...rowBtn, color: 'var(--red)' }} onClick={() => { setSession(null); onLogout(); }}>Se déconnecter</button>
         </div>)}
       {tab === 'plus' && !reglages && <Documents api={api} session={session} />}
+      {tab === 'plus' && !reglages && <Journal api={api} />}
     </div>
   );
 }
@@ -86,6 +89,15 @@ function Documents({ api, session }: { api: Api; session: Session }) {
       </div>
     </>
   );
+}
+
+/** Journal des accès sensibles (mode inspecteur). */
+function Journal({ api }: { api: Api }) {
+  const [list, setList] = useState<AuditEntry[]>([]);
+  useEffect(() => { api.auditLog().then(setList); }, [api]);
+  if (!list.length) return null;
+  return (<><div className="section-label">Journal des accès inspecteur</div>
+    <div className="group">{list.slice(0, 20).map((a, i) => <div className="row sub" key={i}>{a.at.toLocaleString('fr-CH')} · {a.who} · {a.action}</div>)}</div></>);
 }
 
 function Jour({ api, onEvents }: { api: Api; onEvents: () => void }) {

@@ -80,6 +80,12 @@ export interface TimeEntry { id: string; memberId: string; prenom: string; poste
   breaks: { start: Date; end: Date | null }[]; corrections: { at: Date; by: string; what: string; reason: string }[] }
 export interface HoursAlert { entryId: string; prenom: string; since: Date; hours: number }
 
+/** Mode inspecteur : accès lecture seule, limité dans le temps, journalisé. */
+export interface InspectorAccess { token: string; until: Date; openedBy: string }
+export interface InspectorInfo { thresholds: DayReport['thresholds']; documents: AdminDoc[]; trainings: { name: string; at: string; score: number }[];
+  haccpReview: Date | null; events: { name: string; place: string; dates: string; ofco: string }[] }
+export interface AuditEntry { at: Date; who: string; action: string }
+
 /** Contrat commun : implémenté par la démo (mémoire) et par Supabase (fonctions RPC du serveur). */
 export interface Api {
   openSession(pin: string): Promise<Session>;
@@ -137,6 +143,11 @@ export interface Api {
   correctEntry(token: string, id: string, v: { start: Date; end: Date | null; breaks: { start: Date; end: Date | null }[] }, reason: string): Promise<void>;
   hoursAlerts(now: Date): Promise<HoursAlert[]>;
   privacyAcks(): Promise<{ name: string; at: string }[]>;
+  openInspector(token: string): Promise<InspectorAccess>;
+  closeInspector(inspToken: string): Promise<void>;
+  inspectorDay(inspToken: string, day: Date): Promise<DayReport>;
+  inspectorInfo(inspToken: string): Promise<InspectorInfo>;
+  auditLog(): Promise<AuditEntry[]>;
   // Événements
   events(): Promise<EventInfo[]>;
   currentEvent(now: Date): Promise<EventInfo | null>;

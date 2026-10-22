@@ -1,3 +1,5 @@
+import { Inspecteur } from './screens/Inspecteur';
+import type { InspectorAccess } from './api/types';
 import { Notice } from './screens/Notice';
 import { LangProvider } from './i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -21,6 +23,7 @@ type View = 'home' | 'notice' | 'prise' | 'formation' | Target;
 const IDLE_MS = 2 * 60_000;   // D35 : fermeture après 2 min sans activité
 
 export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
+  const [inspector, setInspector] = useState<InspectorAccess | null>(null);
   const [mode, setMode] = useState<'stand' | 'direction'>(location.hash === '#direction' ? 'direction' : 'stand');
   const [session, setSession] = useState<Session | null>(null);
   const [depannage, setDepannage] = useState(false);
@@ -42,7 +45,8 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
     return () => { window.clearTimeout(timer.current); window.removeEventListener('pointerdown', reset); };
   }, [session, close]);
 
-  if (mode === 'direction' && !session) return <Direction api={api} onLogout={() => setMode('stand')}
+  if (inspector) return <Inspecteur api={api} access={inspector} onClose={() => setInspector(null)} />;
+  if (mode === 'direction' && !session) return <Direction api={api} onLogout={() => setMode('stand')} onInspector={setInspector}
     onDepannage={(s) => { setDepannage(true); setSession(s); setView(s.aptToday ? 'home' : 'prise'); }} />;
   if (!session) return <Pointage api={api} demoHint={demoHint} onDirection={() => setMode('direction')}
     onSession={(s) => { setSession(s); setView(!s.privacyAck ? 'notice' : !s.aptToday ? 'prise' : !s.trained ? 'formation' : 'home'); }} />;

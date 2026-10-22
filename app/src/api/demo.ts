@@ -2,7 +2,7 @@
 import { dueAlert, isWeakPin, lotCode, readingStatus, useBy, type Right } from '../domain/rules';
 import type { DayReport } from '../report/dailyReport';
 import { checkEntry, FORGOT_AFTER_H, workedMinutes } from '../domain/hours';
-import type { TimeEntry, EventInfo, EventSummary, AdminDoc, Api, CleaningTask, Dish, Equipment, HotBatch, Lot, Nc, Recipe, Session, StandAlert } from './types';
+import type { AuditEntry, TimeEntry, EventInfo, EventSummary, AdminDoc, Api, CleaningTask, Dish, Equipment, HotBatch, Lot, Nc, Recipe, Session, StandAlert } from './types';
 
 const ALL: Right[] = ['pointage', 'prise_poste', 'nettoyage', 'signaler_nc', 'allergenes_lecture', 'releves', 'reception',
   'preparations', 'jeter_lot', 'traiter_nc', 'cloturer_nc', 'tableau_bord', 'heures_equipe', 'export', 'equipements',
@@ -59,6 +59,10 @@ export function createDemoApi(): Api {
   ];
   const catalog = new Map<string, { product: string; supplier: string }>();
   const trained = new Set<string>(['m1']);
+  const trainedAt = new Map<string, { at: Date; score: number }>([['m1', { at: ago(60 * 24 * 20), score: 5 }]]);
+  const audit: AuditEntry[] = [];
+  const inspectors = new Map<string, { until: Date; by: string }>();
+  const insp = (t: string) => { const i = inspectors.get(t); if (!i || i.until < new Date()) throw new Error('Accès inspecteur expiré'); return i; };
   const privacy = new Map<string, Date>([['m1', ago(60 * 24 * 3)]]);   // notice LPD lue
   const checklists = new Map<string, string>();      // mode -> jour fait (montage : id de l'événement)
   const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -324,6 +328,33 @@ export function createDemoApi(): Api {
       t.pin = newPin();
       return t.pin;
     },
+    async openInspector(token) {
+      const m = member(token);
+      if (!can(m, 'export')) throw new Error('Mode inspecteur réservé au Gérant et au Manager');
+      const t = crypto.randomUUID(), until = new Date(Date.now() + 2 * 3_600_000);
+      inspectors.set(t, { until, by: m.prenom });
+      audit.unshift({ at: new Date(), who: m.prenom, action: 'Accès inspecteur ouvert (lecture seule, 2 h)' });
+      return { token: t, until, openedBy: m.prenom };
+    },
+    async closeInspector(t) {
+      const i = inspectors.get(t); if (!i) return;
+      inspectors.delete(t); audit.unshift({ at: new Date(), who: i.by, action: 'Accès inspecteur fermé' });
+    },
+    async inspectorDay(t, day) {
+      insp(t);
+      audit.unshift({ at: new Date(), who: 'Inspecteur', action: `Registres du ${day.toLocaleDateString('fr-CH')} consultés` });
+      const r = await this.dayReport(day);
+      if (day.toDateString() === new Date().toDateString()) return r;
+      return { ...r, readings: [], oil: [], receptions: [], cleaning: [], cleaningMissed: [], lots: [], ncs: [] };   // démo : seul le jour courant a des registres
+    },
+    async inspectorInfo(t) {
+      insp(t);
+      const r = await this.dayReport(new Date());
+      return { thresholds: r.thresholds, documents: await this.documents(), haccpReview: lastReview,
+        trainings: DEMO_MEMBERS.filter((m) => trainedAt.has(m.id)).map((m) => ({ name: `${m.prenom} (${m.poste})`, at: trainedAt.get(m.id)!.at.toLocaleDateString('fr-CH'), score: trainedAt.get(m.id)!.score })),
+        events: events.map((e) => ({ name: e.name, place: e.place, dates: `${e.start.toLocaleDateString('fr-CH')} → ${e.end.toLocaleDateString('fr-CH')}`, ofco: e.ofcoRef || 'non renseignée' })) };
+    },
+    async auditLog() { return audit.map((a) => ({ ...a })); },
     async dayReport(now) {
       const steps: Record<string, string> = { mesure_immediate: 'Mesure immédiate', evaluation_risque: 'Évaluation du risque', action_corrective: 'Action corrective', verification: 'Vérification', cloture: 'Clôture' };
       return {
@@ -337,7 +368,7 @@ export function createDemoApi(): Api {
           { label: 'Huile', value: '≤ 175 °C / < 25 %', source: 'Règle interne (BPHR 2.4.4 : 175 °C, 27 %)' },
           { label: 'Préparations maison', value: 'J+2, ≤ 4 °C', source: 'BPHR 6.3.1 (production + 2 jours)' },
         ],
-        attendance: entries.filter((e) => e.start.toDateString() === now.toDateString() || !e.end).map((e) => ({ name: e.prenom, poste: e.poste, arrival: hm(e.start),
+        attendance: entries.filter((e) => e.start.toDateString() === now.toDateString() || (!e.end && now.toDateString() === new Date().toDateString())).map((e) => ({ name: e.prenom, poste: e.poste, arrival: hm(e.start),
           departure: e.end ? hm(e.end) : null, pauses: e.breaks.map((b) => `${hm(b.start)}–${b.end ? hm(b.end) : '…'}`).join(', '),
           apte: fit.get(e.memberId)?.day === today() ? fit.get(e.memberId)!.ok : null })),
         readings: log.readings, oil: log.oil, receptions: log.receptions, cleaning: log.cleaning,
@@ -440,7 +471,7 @@ export function createDemoApi(): Api {
     async saveTraining(token, score) {
       const m = member(token);
       if (score < 4) throw new Error('Moins de 4 bonnes réponses sur 5 : relisez le briefing et recommencez');
-      trained.add(m.id);
+      trained.add(m.id); trainedAt.set(m.id, { at: new Date(), score });
     },
     async hotBatches() { return hot.map((h) => ({ ...h })); },
     async startHot(token, product) {
