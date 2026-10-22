@@ -96,3 +96,31 @@ Autocontrôle documenté sous forme électronique (art. 85 ODAlOUs : « par écr
 - OFCO Vaud, directive manifestations 08.04.2019 : https://www.vd.ch/fileadmin/user_upload/themes/economie_emploi/protection_consommateur/fichiers_pdf/Directive_commerce_DAl_manif.pdf
 - ODAlOUs art. 76, 83, 84, 85 (état 01.07.2025) : https://justement.ch/fr/doc/act/ch/817_02/chap_4
 - Canton de Genève, bonnes pratiques sur un stand : https://www.ge.ch/exploiter-stand-alimentaire-cadre-manifestation-publique/bonnes-pratiques-exigences-minimales-requises-matiere-hygiene-stand
+
+## F. Suivi des corrections (22.10.2026)
+
+| # | Statut | Où |
+|---|---|---|
+| B1 Maintien au chaud 3 h | ✅ démo | Tuile « Maintien au chaud » : minuteur par bac, alerte avant 3 h, élimination ; alerte sur l'écran de pointage |
+| B2 Réchauffe 72 °C + 2 min | ✅ démo | Relevé « Réchauffe à cœur » : cases « sonde désinfectée » et « maintenue 2 min » obligatoires |
+| B3 Origine de la viande | ✅ démo | Allergènes et origine (vue client) · checklist de montage (affichage) — **pays et mode d'élevage à fournir (Carnadis)** |
+| B4 Friteuse | ✅ démo | Plan de nettoyage : cuve complète à chaque changement d'huile, extérieur chaque soir |
+| B5 Source huile | ✅ | Rapport : « BPHR 2.4.4 » |
+| C1 Checklist de montage | ✅ démo | 18 points avec sources ; un NON ouvre une NC |
+| C2 Formation + vérification | ✅ démo | Briefing 6 règles (5 clés OMS + santé/accès) + quiz 5 questions (4/5 requis) avant le 1er service |
+| C3 Thermomètres | ✅ démo | Test eau + glace au montage ; sonde désinfectée avant chaque mesure |
+| C4 Nuisibles | ✅ démo | Checklists montage + ouverture ; type de signalement |
+| C5 Plainte / intoxication | ✅ démo | Signalement avec étapes art. 84 ODAlOUs (échantillons, OFCO) |
+| C6 Produits entamés | ✅ démo | « + Produit entamé » : étiquette « ouvert le » + date limite selon l'emballage |
+| C7 DLC / FIFO stock | ✅ démo | Checklist d'ouverture |
+| C8 Transport propre | ✅ démo | Réception : « Achat transporté par nous » + température à l'arrivée |
+| C9 Restes chauds | ✅ démo | Checklist de fermeture |
+| C10 Dosage / EPI | ✅ démo | Affiché sous chaque tâche — **dosages exacts à reprendre des étiquettes des produits** |
+| C11 Eau / lave-mains | ✅ démo | Checklists montage + ouverture |
+| C12 Revue HACCP | ✅ démo | Direction › Plus › Revue du plan HACCP |
+| C13 Entretien | ✅ démo | Signalement « Panne / matériel » + Documents › Entretien |
+| C14 Accès réservé | ✅ démo | Formation + checklist de montage |
+| C15 Commande allergie | ➖ hors NORMA | Système de caisse (D40) ; procédure dans la formation |
+| C16 Affichette allergènes | ➖ hors NORMA | Imprimée par l'entreprise (D41), suivie dans Documents |
+
+Côté serveur (base de données), ces ajouts seront intégrés au moment du branchement Supabase (migration 005).

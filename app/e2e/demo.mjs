@@ -11,7 +11,23 @@ console.log('code faux:', await p.getByRole('alert').first().innerText());
 await type('4827'); await p.waitForTimeout(300);
 for (const g of await p.getByRole('radiogroup').all()) await g.getByRole('radio', { name: 'Oui' }).click();
 await shot('2-prise'); await p.getByRole('button', { name: 'Commencer mon service' }).click();
+const formation = async () => {
+  await p.getByRole('button', { name: /passer au quiz/ }).click();
+  const good = [1, 0, 1, 1, 0];
+  const groups = await p.getByRole('radiogroup').all();
+  for (let i = 0; i < groups.length; i++) await groups[i].getByRole('radio').nth(good[i]).click();
+  await p.getByRole('button', { name: /signer l’attestation/ }).click(); await p.waitForTimeout(150);
+};
+await shot('2b-formation'); await formation(); console.log('formation validée → accueil:', await p.locator('.h1').innerText());
 await p.waitForTimeout(200); await shot('3-session');
+// Checklist de montage
+await p.getByRole('button', { name: /^Checklists/ }).click(); await p.waitForTimeout(150);
+const sw = await p.getByRole('switch').all(); for (let i = 0; i < sw.length - 1; i++) await sw[i].click();
+await shot('2c-montage'); await p.getByRole('button', { name: 'Valider la checklist' }).click(); await p.waitForTimeout(200);
+console.log('montage:', await p.locator('.badge').innerText()); await p.waitForTimeout(1600);
+// Maintien au chaud
+await p.getByRole('button', { name: /^Maintien au chaud/ }).click(); await p.getByRole('button', { name: '+ Saucisses volaille' }).click(); await p.waitForTimeout(100);
+console.log('bac au chaud:', await p.locator('.pill').first().innerText()); await p.getByRole('button', { name: '‹ Retour' }).click();
 await p.getByRole('button', { name: /Températures/ }).click(); await p.waitForTimeout(200);
 const w = p.getByRole('slider', { name: 'Température' });
 for (let i = 0; i < 9; i++) await w.press('ArrowUp');
@@ -51,6 +67,7 @@ await p.getByRole('button', { name: 'Fermer la session' }).click(); await p.wait
 await type('5913'); await p.waitForTimeout(300);
 for (const g of await p.getByRole('radiogroup').all()) await g.getByRole('radio', { name: 'Oui' }).click();
 await p.getByRole('button', { name: 'Commencer mon service' }).click(); await p.waitForTimeout(200);
+await formation();
 console.log('tuiles caisse:', (await p.locator('.tile .t').allInnerTexts()).join(', '));
 await p.getByRole('button', { name: /^Allergènes/ }).click(); await p.waitForTimeout(150);
 console.log('allergènes Original:', (await p.locator('.row').filter({ hasText: 'Completo Original' }).locator('.pill').allInnerTexts()).join(', '));

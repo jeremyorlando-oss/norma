@@ -10,6 +10,9 @@ export function Preparations({ api, session, onBack }: { api: Api; session: Sess
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const [opName, setOpName] = useState('');
+  const [opDays, setOpDays] = useState(3);
   const [label, setLabel] = useState<{ lot: Lot; recipe: Recipe } | null>(null);
   const [error, setError] = useState('');
   const load = useCallback(() => api.lots(new Date()).then(setLots), [api]);
@@ -54,7 +57,19 @@ export function Preparations({ api, session, onBack }: { api: Api; session: Sess
         </>
       ) : (
         <>
-          <button className="btn btn-primary" onClick={() => setPicking(true)}>+ Nouvelle préparation</button>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <button className="btn btn-primary" onClick={() => setPicking(true)}>+ Nouvelle préparation</button>
+            <button className="btn" style={{ background: '#fff', color: 'var(--blue)' }} onClick={() => setOpening(!opening)}>+ Produit entamé</button>
+          </div>
+          {opening && (
+            <div className="group">
+              <label className="row"><span style={{ width: 110 }}>Produit</span><input value={opName} onChange={(e) => setOpName(e.target.value)} placeholder="ex. Mayonnaise 5 kg" style={{ flex: 1, border: 'none', fontSize: 16, fontFamily: 'inherit' }} /></label>
+              <label className="row"><span style={{ width: 110 }}>Après ouverture</span><input type="number" min={0} max={60} value={opDays} onChange={(e) => setOpDays(Number(e.target.value))} style={{ width: 60, border: 'none', fontSize: 16 }} /> jours (selon l’étiquette)</label>
+              <button className="row link" style={{ width: '100%' }} disabled={opName.trim().length < 2} onClick={async () => {
+                try { const lot = await api.openProduct(session.token, opName.trim(), opDays); setOpening(false); setOpName(''); load();
+                  setLabel({ lot, recipe: { id: '', name: lot.recipeName, code: '', shelfDays: opDays, allergens: [] } }); } catch (e) { setError((e as Error).message); }
+              }}>Créer l’étiquette « ouvert le »</button>
+            </div>)}
           {groups.map(([st, title, color]) => {
             const list = lots.filter((l) => l.status === st);
             if (!list.length) return null;

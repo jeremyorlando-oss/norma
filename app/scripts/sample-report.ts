@@ -14,10 +14,10 @@ const data: DayReport = {
   thresholds: [
     { label: 'Froid positif (frigo, saladette)', value: '0 à 4 °C', source: 'Règle interne (VD : 5 °C max, directive OFCO 08.04.2019)' },
     { label: 'Congélateur', value: '≤ −18 °C', source: 'Directive OFCO VD 08.04.2019' },
-    { label: 'Maintien au chaud', value: '≥ 65 °C', source: 'Directive OFCO VD 08.04.2019' },
-    { label: 'Cuisson / réchauffe à cœur', value: '≥ 72 °C', source: 'Règle interne (aucune valeur officielle trouvée)' },
-    { label: 'Huile : température / polaires', value: '≤ 175 °C / < 25 %', source: 'Règle interne (Lab. cantonal SO : 175 °C, 27 %)' },
-    { label: 'Préparations maison', value: 'J+2, ≤ 4 °C', source: 'Règle interne (D7)' },
+    { label: 'Maintien au chaud', value: '≥ 65 °C, 3 h max', source: 'Directive OFCO VD 08.04.2019 · BPHR 2.4.4' },
+    { label: 'Réchauffe à cœur', value: '≥ 72 °C, 2 min', source: 'Règle interne (BPHR 2.4.4 : 70 °C, 2 min)' },
+    { label: 'Huile : température / polaires', value: '≤ 175 °C / < 25 %', source: 'Règle interne (BPHR 2.4.4 : 175 °C, 27 %)' },
+    { label: 'Préparations maison', value: 'J+2, ≤ 4 °C', source: 'BPHR 6.3.1 (production + 2 jours)' },
   ],
   attendance: [
     { name: 'Esteban Q.', poste: 'Chef de cuisine', arrival: '10:02', departure: '22:48', apte: true },

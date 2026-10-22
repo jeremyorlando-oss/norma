@@ -30,6 +30,7 @@ export function Nettoyage({ api, session, onBack }: { api: Api; session: Session
               <span className="grow">
                 <span className="main">{t.name}</span>
                 {t.dueAt && al !== 'ok' ? <span className={`pill ${al}`}>{formatDelay(t.dueAt, now)}</span> : <span className="sub">{t.frequency}</span>}
+                <span className="sub" style={{ fontSize: 12 }}>{t.product}</span>
               </span>
             </div>);
         })}

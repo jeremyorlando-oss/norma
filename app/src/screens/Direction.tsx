@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Api, DayStats, Member, Nc, NcStep, Session } from '../api/types';
+import type { AdminDoc, Api, DayStats, Member, Nc, NcStep, Session } from '../api/types';
 import { Segmented } from '../components/Controls';
 
 type Tab = 'jour' | 'nc' | 'equipe' | 'plus';
@@ -43,10 +43,35 @@ export function Direction({ api, onDepannage, onLogout }: { api: Api; onDepannag
           }}><span className="grow"><span className="main">Rapport du jour (PDF)</span><span className="sub">Envoyé automatiquement chaque soir · ici : générer maintenant</span></span>›</button>
           <button className="row" style={{ ...rowBtn, color: 'var(--red)' }} onClick={() => { setSession(null); onLogout(); }}>Se déconnecter</button>
         </div>)}
+      {tab === 'plus' && <Documents api={api} session={session} />}
     </div>
   );
 }
 const rowBtn = { width: '100%', border: 'none', background: '#fff', fontSize: 17, textAlign: 'left' } as const;
+
+/** Administratif : documents du stand (déposés, jamais générés), revue périodique du plan HACCP (BPHR 4.2.4). */
+function Documents({ api, session }: { api: Api; session: Session }) {
+  const [docs, setDocs] = useState<AdminDoc[]>([]);
+  const [review, setReview] = useState<Date | null>(null);
+  useEffect(() => { api.documents().then(setDocs); api.haccpReview(null).then(setReview); }, [api]);
+  const col = { ok: 'vert', manquant: 'rouge', a_jour: 'jaune' } as const;
+  const txt = { ok: 'OK', manquant: 'Manquant', a_jour: 'À mettre à jour' };
+  return (
+    <>
+      <div className="section-label">Administratif et documents du stand</div>
+      <div className="group">
+        {docs.map((d) => (
+          <div className="row" key={d.id}><span className="grow"><span className="main" style={{ fontSize: 16 }}>{d.name}</span><span className="sub">{d.detail}</span></span>
+            <span className={`pill ${col[d.status]}`}>{txt[d.status]}</span></div>))}
+      </div>
+      <div className="group">
+        <div className="row"><span className="grow"><span className="main" style={{ fontSize: 16 }}>Revue du plan HACCP</span>
+          <span className="sub">{review ? `Dernière revue : ${review.toLocaleDateString('fr-CH')}` : 'Aucune revue enregistrée · à faire au moins 1× par an et à chaque changement (menu, équipement, incident)'}</span></span>
+          {session.droits.includes('reglages_gerant') && <button className="link" style={{ fontSize: 15 }} onClick={() => api.haccpReview(session.token).then(setReview)}>Revue faite</button>}</div>
+      </div>
+    </>
+  );
+}
 
 function Jour({ api }: { api: Api }) {
   const [s, setS] = useState<DayStats | null>(null);

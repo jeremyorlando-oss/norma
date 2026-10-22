@@ -9,6 +9,7 @@ export interface Session {
   arrivee: boolean;      // true = arrivée pointée par ce code
   droits: Right[];
   aptToday: boolean;     // prise de poste conforme faite aujourd'hui
+  trained: boolean;      // formation / briefing validé (quiz réussi)
 }
 
 export interface Equipment {
@@ -43,14 +44,16 @@ export interface OilInput {
 export interface ReceptionInput {
   supplier: string; product: string; lot: string; dlc: string; temperature: number;
   checks: [boolean, boolean, boolean, boolean]; accepted: boolean; refusalReason: string | null;
-  photo: boolean; autofilled: boolean; barcode: string | null;
+  photo: boolean; autofilled: boolean; barcode: string | null; ownTransport: boolean;
 }
 export interface Recipe { id: string; name: string; code: string; shelfDays: number; allergens: string[] }
-export interface Lot { id: string; recipeName: string; lotCode: string; producedOn: Date; useBy: Date; by: string;
+export interface Lot { id: string; kind: 'preparation' | 'ouvert'; recipeName: string; lotCode: string; producedOn: Date; useBy: Date; by: string;
   status: 'a_garder' | 'aujourd_hui' | 'a_jeter' | 'jete'; disposed: { by: string; at: Date } | null }
 
-export interface Dish { name: string; ingredients: string[]; allergens: string[] }
-export type NcKind = 'corps_etranger' | 'allergie' | 'coupure_courant' | 'hygiene' | 'autre';
+export interface Dish { name: string; ingredients: string[]; allergens: string[]; meatOrigin: string | null }
+export type NcKind = 'corps_etranger' | 'allergie' | 'intoxication' | 'coupure_courant' | 'nuisibles' | 'materiel' | 'hygiene' | 'autre';
+export interface HotBatch { id: string; product: string; startedAt: Date; by: string; ended: { at: Date; how: 'vendu' | 'jete'; by: string } | null }
+export interface AdminDoc { id: string; name: string; status: 'ok' | 'manquant' | 'a_jour'; detail: string }
 
 export interface NcStep { step: 'mesure_immediate' | 'evaluation_risque' | 'action_corrective' | 'verification' | 'cloture'; content: string; by: string; at: Date }
 export interface Nc { id: string; kind: string; description: string; openedBy: string; openedAt: Date; steps: NcStep[]; closed: boolean }
@@ -87,4 +90,14 @@ export interface Api {
   resetPin(token: string, memberId: string): Promise<string>;
   dayStats(now: Date): Promise<DayStats>;
   dayReport(now: Date): Promise<DayReport>;
+  // Audit v1 : checklists, formation, maintien au chaud, produits entamés, documents
+  checklistDone(mode: 'montage' | 'ouverture' | 'fermeture'): Promise<boolean>;
+  saveChecklist(token: string, mode: 'montage' | 'ouverture' | 'fermeture', answers: Record<string, boolean>, labels: Record<string, string>): Promise<number>;
+  saveTraining(token: string, score: number): Promise<void>;
+  hotBatches(): Promise<HotBatch[]>;
+  startHot(token: string, product: string): Promise<void>;
+  endHot(token: string, id: string, how: 'vendu' | 'jete'): Promise<void>;
+  openProduct(token: string, name: string, daysAfterOpening: number): Promise<Lot>;
+  documents(): Promise<AdminDoc[]>;
+  haccpReview(token: string | null): Promise<Date | null>;     // null = lecture ; token = enregistrer une revue
 }

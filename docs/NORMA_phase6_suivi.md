@@ -34,5 +34,6 @@
 | Menu / recettes : mis à jour par Claude à partir du menu transmis (D37) | — | — | Pas d'écran de modification |
 | Rapport journalier PDF (page « comment lire », seuils + sources, 7 sections, écarts en rouge, pages numérotées, code de vérification, visa) | ✅ | ✅ | Généré depuis l'iPhone Direction ; test navigateur |
 | Envoi automatique du rapport chaque soir au Gérant et au Manager | ⏳ | — | Nécessite le serveur en ligne |
+| Corrections de l'audit v1 (checklists, formation + quiz, maintien au chaud 3 h, réchauffe 2 min, origine viande, intoxication, produits entamés, transport propre, documents, revue HACCP) | ✅ | ✅ | Démo ; base de données : migration 005 au branchement serveur |
 
 Tests : 74 vérifications automatiques, toutes réussies (22.10.2026), sur base PostgreSQL de test locale.

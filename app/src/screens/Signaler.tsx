@@ -11,10 +11,21 @@ const KINDS: { kind: NcKind; label: string; steps?: string[] }[] = [
   { kind: 'allergie', label: 'Réaction allergique d’un client', steps: [
     'Urgence (gonflement, difficulté à respirer) : appeler le 144', 'Informer immédiatement le responsable',
     'Noter le plat servi et l’heure', 'Garder le reste du plat à part, sans le jeter'] },
+  { kind: 'intoxication', label: 'Plainte client / suspicion d’intoxication', steps: [
+    'Garder le reste du plat et les produits du même lot au froid, étiquetés « NE PAS JETER »',
+    'Isoler le lot concerné (préparation ou produit reçu) et arrêter de le servir',
+    'Noter l’heure, le plat servi et, si le client accepte, ses coordonnées',
+    'Informer immédiatement le Gérant',
+    'Le Gérant informe l’OFCO (021 316 43 43) si un danger est possible (art. 84 ODAlOUs)',
+    'Conserver tous les enregistrements du jour (rapport, lots, réceptions)'] },
+  { kind: 'nuisibles', label: 'Nuisibles (insectes, rongeurs)', steps: [
+    'Protéger ou retirer les denrées exposées', 'Nettoyer et désinfecter la zone', 'Informer le responsable', 'Boucher les accès ; spécialiste si le problème persiste'] },
+  { kind: 'materiel', label: 'Panne ou matériel défectueux', steps: [
+    'Isoler l’équipement (ne plus l’utiliser)', 'Contrôler les températures des produits concernés', 'Informer le responsable', 'Noter la réparation dans Administratif › Entretien'] },
   { kind: 'coupure_courant', label: 'Coupure de courant', steps: [
     'Informer le responsable', 'Ne pas ouvrir frigos, saladette et congélateur', 'Relever les températures dès que possible',
     'Contacter l’organisateur ou le technicien', 'Si la chaîne du froid n’est plus garantie : suspendre la vente'] },
-  { kind: 'hygiene', label: 'Problème d’hygiène ou de matériel' },
+  { kind: 'hygiene', label: 'Problème d’hygiène' },
   { kind: 'autre', label: 'Autre problème' },
 ];
 

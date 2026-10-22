@@ -1,7 +1,7 @@
 // Démo autonome : mêmes règles que le serveur, données en mémoire (rien n'est enregistré).
 import { dueAlert, isWeakPin, lotCode, readingStatus, useBy, type Right } from '../domain/rules';
 import type { DayReport } from '../report/dailyReport';
-import type { Api, CleaningTask, Dish, Equipment, Lot, Nc, Recipe, Session, StandAlert } from './types';
+import type { AdminDoc, Api, CleaningTask, Dish, Equipment, HotBatch, Lot, Nc, Recipe, Session, StandAlert } from './types';
 
 const ALL: Right[] = ['pointage', 'prise_poste', 'nettoyage', 'signaler_nc', 'allergenes_lecture', 'releves', 'reception',
   'preparations', 'jeter_lot', 'traiter_nc', 'cloturer_nc', 'tableau_bord', 'heures_equipe', 'export', 'equipements',
@@ -49,11 +49,15 @@ export function createDemoApi(): Api {
     { id: 'e1', name: 'Frigo (positif)', type: 'froid_positif', min: 0, max: 4, defaultValue: 3.5 },
     { id: 'e2', name: 'Congélateur', type: 'froid_negatif', min: null, max: -18, defaultValue: -20 },
     { id: 'e3', name: 'Saladette', type: 'froid_positif', min: 2, max: 4, defaultValue: 3 },
-    { id: 'e4', name: 'Cuisson à cœur', type: 'cuisson', min: 72, max: null, defaultValue: 75 },
+    { id: 'e4', name: 'Réchauffe à cœur (saucisses)', type: 'cuisson', min: 72, max: null, defaultValue: 75 },
     { id: 'e5', name: 'Maintien au chaud', type: 'maintien_chaud', min: 65, max: null, defaultValue: 68 },
     { id: 'e6', name: 'Friteuse 1', type: 'friteuse', min: null, max: 175, defaultValue: 170 },
   ];
   const catalog = new Map<string, { product: string; supplier: string }>();
+  const trained = new Set<string>(['m1']);
+  const checklists = new Map<string, string>();      // mode -> jour fait
+  const hot: HotBatch[] = [];
+  let lastReview: Date | null = null;
   const recipes: Recipe[] = [
     { id: 'r1', name: "Sauce Original's", code: 'ORI', shelfDays: 2, allergens: ['oeufs', 'moutarde', 'poisson'] },
     { id: 'r2', name: 'Sauce jalapeños', code: 'JAL', shelfDays: 2, allergens: ['oeufs', 'moutarde'] },
@@ -66,7 +70,7 @@ export function createDemoApi(): Api {
     ['r4', 3], ['r3', 2], ['r1', 1],
   ].map(([rid, n], i) => {
     const r = recipes.find((x) => x.id === rid)!; const p = daysAgo(n as number);
-    return { id: 'l' + i, recipeName: r.name, lotCode: lotCode(r.code, p, 1), producedOn: p, useBy: useBy(p, r.shelfDays), by: 'Esteban', disposed: null };
+    return { id: 'l' + i, kind: 'preparation' as const, recipeName: r.name, lotCode: lotCode(r.code, p, 1), producedOn: p, useBy: useBy(p, r.shelfDays), by: 'Esteban', disposed: null };
   });
   const lotStatus = (l: Omit<Lot, 'status'>, now: Date): Lot['status'] => {
     if (l.disposed) return 'jete';
@@ -74,11 +78,17 @@ export function createDemoApi(): Api {
     return t > l.useBy ? 'a_jeter' : t.getTime() === l.useBy.getTime() ? 'aujourd_hui' : 'a_garder';
   };
   const tasks: (Omit<CleaningTask, 'dueAt'> & { interval: number | null })[] = [
-    { id: 't1', name: 'Zone caisse et service', product: 'Désinfectant alimentaire', frequency: 'Toutes les 2 h', interval: 120, lastDone: { by: 'Noah', at: ago(127) } },
-    { id: 't2', name: 'Sol', product: 'Détergent + désinfectant', frequency: 'Toutes les 2 h', interval: 120, lastDone: { by: 'Lucía', at: ago(110) } },
-    { id: 't3', name: 'Poubelles et containers', product: 'Désinfectant détergent', frequency: 'Toutes les 6 h', interval: 360, lastDone: { by: 'Esteban', at: ago(60) } },
-    { id: 't4', name: 'Plans de travail inox', product: 'Désinfectant alimentaire', frequency: 'À chaque changement de tâche', interval: null, lastDone: { by: 'Esteban', at: ago(25) } },
+    { id: 't1', name: 'Zone caisse et service', product: 'Désinfectant alimentaire · [dosage étiquette] · gants', frequency: 'Toutes les 2 h', interval: 120, lastDone: { by: 'Noah', at: ago(127) } },
+    { id: 't2', name: 'Sol', product: 'Détergent + désinfectant · [dosage étiquette] · gants', frequency: 'Fin de service et dès salissure', interval: 120, lastDone: { by: 'Lucía', at: ago(110) } },
+    { id: 't3', name: 'Poubelles et containers', product: 'Désinfectant détergent · gants', frequency: 'Dès ¾ pleines et en fin de service', interval: 360, lastDone: { by: 'Esteban', at: ago(60) } },
+    { id: 't4', name: 'Plans de travail inox', product: 'Désinfectant alimentaire · [temps de contact étiquette]', frequency: 'À chaque changement de tâche', interval: null, lastDone: { by: 'Esteban', at: ago(25) } },
     { id: 't5', name: 'Ustensiles et pinces', product: 'Détergent + désinfectant', frequency: 'Après utilisation', interval: null, lastDone: null },
+    { id: 't6', name: 'Sonde du thermomètre', product: 'Lingette désinfectante alimentaire', frequency: 'Avant chaque mesure', interval: null, lastDone: null },
+    { id: 't7', name: 'Lave-mains', product: 'Détergent · gants', frequency: '1× par jour', interval: null, lastDone: null },
+    { id: 't8', name: 'Bacs et contenants', product: 'Détergent + désinfectant', frequency: 'À chaque vidage', interval: null, lastDone: null },
+    { id: 't9', name: 'Friteuse (cuve complète)', product: 'Produit spécial friture · gants + lunettes', frequency: 'À chaque changement d’huile ; extérieur chaque soir', interval: null, lastDone: null },
+    { id: 't10', name: 'Frigos (intérieur complet)', product: 'Désinfectant alimentaire', frequency: 'Montage, démontage et 1× par semaine ; poignées et joints chaque jour', interval: null, lastDone: null },
+    { id: 't11', name: 'Tablette NORMA', product: 'Lingette désinfectante', frequency: 'Début et fin de service', interval: null, lastDone: null },
   ];
 
   const member = (token: string) => {
@@ -103,7 +113,7 @@ export function createDemoApi(): Api {
       if (arrivee) clockedIn.set(m.id, new Date());
       const token = crypto.randomUUID();
       sessions.set(token, { memberId: m.id, last: Date.now() });
-      const s: Session = { token, memberId: m.id, prenom: m.prenom, poste: m.poste, arrivee, droits: POSTES[m.poste], aptToday: aptToday(m.id) };
+      const s: Session = { token, memberId: m.id, prenom: m.prenom, poste: m.poste, arrivee, droits: POSTES[m.poste], aptToday: aptToday(m.id), trained: trained.has(m.id) };
       return s;
     },
     async closeSession(token) { sessions.delete(token); },
@@ -149,7 +159,7 @@ export function createDemoApi(): Api {
       if (i.accepted && new Date(i.dlc) < daysAgo(0)) throw new Error('Acceptation impossible : DLC dépassée');
       if (i.barcode && !catalog.has(i.barcode)) catalog.set(i.barcode, { product: i.product, supplier: i.supplier });
       stats.receptions++;
-      log.receptions.push({ time: hm(), supplier: i.supplier, product: i.product, lot: i.lot, dlc: new Date(i.dlc).toLocaleDateString('fr-CH'), temp: fmt1(i.temperature) + ' °C',
+      log.receptions.push({ time: hm(), supplier: i.supplier + (i.ownTransport ? ' (transport propre)' : ''), product: i.product, lot: i.lot, dlc: new Date(i.dlc).toLocaleDateString('fr-CH'), temp: fmt1(i.temperature) + ' °C',
         result: i.accepted ? 'Acceptée' : 'Refusée : ' + i.refusalReason, by: m.prenom, photo: i.photo });
       if (!i.accepted) openNc('Réception', `${i.product} refusé : ${i.refusalReason}`, m.prenom);
     },
@@ -167,7 +177,7 @@ export function createDemoApi(): Api {
       if (!aptToday(m.id)) throw new Error('Prise de poste non conforme ou non faite aujourd’hui');
       const r = recipes.find((x) => x.id === recipeId)!; const p = daysAgo(0);
       const seq = lots.filter((l) => l.lotCode.startsWith(lotCode(r.code, p, 0).slice(0, -1))).length + 1;
-      const l = { id: crypto.randomUUID(), recipeName: r.name, lotCode: lotCode(r.code, p, seq), producedOn: p, useBy: useBy(p, r.shelfDays), by: m.prenom, disposed: null };
+      const l = { id: crypto.randomUUID(), kind: 'preparation' as const, recipeName: r.name, lotCode: lotCode(r.code, p, seq), producedOn: p, useBy: useBy(p, r.shelfDays), by: m.prenom, disposed: null };
       lots.push(l);
       return { ...l, status: lotStatus(l, new Date()) };
     },
@@ -187,7 +197,8 @@ export function createDemoApi(): Api {
         'Sauce jalapeños': ['oeufs', 'moutarde'], 'Purée haricots rouges': [], 'Crispcheese': ['lait', 'gluten'],
         'Chou rouge': [], 'Frites': [], 'Ciboulette': [],
       };
-      const d = (name: string, list: string[]): Dish => ({ name, ingredients: list, allergens: [...new Set(list.flatMap((i) => ing[i] ?? []))] });
+      const d = (name: string, list: string[]): Dish => ({ name, ingredients: list, allergens: [...new Set(list.flatMap((i) => ing[i] ?? []))],
+        meatOrigin: list.includes('Saucisse volaille') ? 'Volaille : [pays de production · mode d’élevage, selon Carnadis]' : null });
       return [
         d('Completo Classic', ['Pain hot-dog', 'Saucisse volaille', 'Ketchup', 'Moutarde', 'Oignons frits']),
         d('Completo Original', ['Pain hot-dog', 'Saucisse volaille', 'Guacamole', 'Tomate', 'Fromage', "Sauce Original's", 'Ciboulette']),
@@ -199,7 +210,7 @@ export function createDemoApi(): Api {
     async signaler(token, kind, description) {
       const m = member(token);
       if (!can(m, 'signaler_nc')) throw new Error('Ce poste ne peut pas signaler');
-      const labels: Record<string, string> = { corps_etranger: 'Corps étranger', allergie: 'Réaction allergique', coupure_courant: 'Coupure de courant', hygiene: 'Hygiène', autre: 'Autre' };
+      const labels: Record<string, string> = { corps_etranger: 'Corps étranger', allergie: 'Réaction allergique', intoxication: 'Plainte / suspicion d’intoxication', coupure_courant: 'Coupure de courant', nuisibles: 'Nuisibles', materiel: 'Matériel', hygiene: 'Hygiène', autre: 'Autre' };
       openNc(labels[kind], description, m.prenom);
     },
     async directionLogin(memberId) {
@@ -207,7 +218,7 @@ export function createDemoApi(): Api {
       if (!['Gérant', 'Manager'].includes(m.poste)) throw new Error('Espace Direction réservé au Gérant et au Manager');
       const token = crypto.randomUUID();
       sessions.set(token, { memberId: m.id, last: Date.now(), iphone: true });   // pas d'expiration courte sur l'iPhone (Face ID)
-      return { token, memberId: m.id, prenom: m.prenom, poste: m.poste, arrivee: false, droits: POSTES[m.poste], aptToday: aptToday(m.id) };
+      return { token, memberId: m.id, prenom: m.prenom, poste: m.poste, arrivee: false, droits: POSTES[m.poste], aptToday: aptToday(m.id), trained: true };
     },
     async nonconformities() { return ncs.map((n) => ({ ...n, steps: [...n.steps] })); },
     async ncStep(token, ncId, step, content) {
@@ -250,10 +261,10 @@ export function createDemoApi(): Api {
         thresholds: [
           { label: 'Froid positif', value: '0 à 4 °C', source: 'Règle interne (VD : 5 °C max)' },
           { label: 'Congélateur', value: '≤ −18 °C', source: 'Directive OFCO VD 08.04.2019' },
-          { label: 'Maintien au chaud', value: '≥ 65 °C', source: 'Directive OFCO VD 08.04.2019' },
-          { label: 'Cuisson à cœur', value: '≥ 72 °C', source: 'Règle interne' },
-          { label: 'Huile', value: '≤ 175 °C / < 25 %', source: 'Règle interne (Lab. cantonal SO)' },
-          { label: 'Préparations maison', value: 'J+2, ≤ 4 °C', source: 'Règle interne (D7)' },
+          { label: 'Maintien au chaud', value: '≥ 65 °C, 3 h max', source: 'Directive OFCO VD 08.04.2019 · BPHR 2.4.4' },
+          { label: 'Réchauffe à cœur', value: '≥ 72 °C, 2 min', source: 'Règle interne (BPHR 2.4.4 : 70 °C, 2 min)' },
+          { label: 'Huile', value: '≤ 175 °C / < 25 %', source: 'Règle interne (BPHR 2.4.4 : 175 °C, 27 %)' },
+          { label: 'Préparations maison', value: 'J+2, ≤ 4 °C', source: 'BPHR 6.3.1 (production + 2 jours)' },
         ],
         attendance: DEMO_MEMBERS.filter((m) => clockedIn.has(m.id)).map((m) => ({ name: m.prenom, poste: m.poste, arrival: hm(clockedIn.get(m.id)!), departure: null,
           apte: fit.get(m.id)?.day === today() ? fit.get(m.id)!.ok : null })),
@@ -264,6 +275,53 @@ export function createDemoApi(): Api {
           steps: n.steps.map((s) => `${hm(s.at)} ${steps[s.step]} : ${s.content} (${s.by})`) })),
       };
     },
+    async checklistDone(mode) { return checklists.get(mode) === today(); },
+    async saveChecklist(token, mode, answers, labels) {
+      const m = member(token);
+      const no = Object.entries(answers).filter(([, v]) => !v);
+      no.forEach(([k]) => openNc('Checklist ' + mode, labels[k] + ' : NON', m.prenom));
+      checklists.set(mode, today());
+      return no.length;
+    },
+    async saveTraining(token, score) {
+      const m = member(token);
+      if (score < 4) throw new Error('Moins de 4 bonnes réponses sur 5 : relisez le briefing et recommencez');
+      trained.add(m.id);
+    },
+    async hotBatches() { return hot.map((h) => ({ ...h })); },
+    async startHot(token, product) {
+      const m = member(token);
+      if (!can(m, 'releves') && !can(m, 'preparations')) throw new Error('Ce poste ne gère pas le maintien au chaud');
+      hot.unshift({ id: crypto.randomUUID(), product, startedAt: new Date(), by: m.prenom, ended: null });
+    },
+    async endHot(token, id, how) {
+      const m = member(token);
+      const h = hot.find((x) => x.id === id)!;
+      if (h.ended) throw new Error('Déjà terminé');
+      if (how === 'vendu' && Date.now() - h.startedAt.getTime() > 3 * 3600_000) throw new Error('Plus de 3 h au chaud : élimination obligatoire');
+      h.ended = { at: new Date(), how, by: m.prenom };
+    },
+    async openProduct(token, name, days) {
+      const m = member(token);
+      if (!can(m, 'preparations')) throw new Error('Ce poste n’a pas le droit d’étiqueter un produit');
+      const p = daysAgo(0);
+      const l = { id: crypto.randomUUID(), kind: 'ouvert' as const, recipeName: name + ' (entamé)', lotCode: 'Ouvert le ' + p.toLocaleDateString('fr-CH'),
+        producedOn: p, useBy: useBy(p, days), by: m.prenom, disposed: null };
+      lots.push(l);
+      return { ...l, status: lotStatus(l, new Date()) };
+    },
+    async documents(): Promise<AdminDoc[]> {
+      return [
+        { id: 'ofco', name: 'Annonce à l’OFCO (art. 20 ODAlOUs)', status: 'manquant', detail: 'À faire avant le prochain événement' },
+        { id: 'adresse', name: 'Attestation d’adresse en Suisse', status: 'ok', detail: 'À présenter sur le stand' },
+        { id: 'rc', name: 'Extrait du registre du commerce', status: 'ok', detail: 'PDF déposé' },
+        { id: 'haccp', name: 'Plan HACCP', status: 'a_jour', detail: 'Mettre à jour selon l’audit de conformité' },
+        { id: 'bphr', name: 'Guide BPHR (imprimé dans le classeur)', status: 'ok', detail: 'Référence des seuils' },
+        { id: 'affiche', name: 'Affichette « allergènes sur demande »', status: 'ok', detail: 'Imprimée par l’entreprise (D41)' },
+        { id: 'entretien', name: 'Entretien des équipements (rapports de service)', status: 'a_jour', detail: 'Noter chaque entretien ou réparation' },
+      ];
+    },
+    async haccpReview(token) { if (token) { member(token); lastReview = new Date(); } return lastReview; },
     async dayStats(now) {
       const late = tasks.filter((t) => { const d = due(t); return d && dueAlert(d, now) === 'rouge'; }).length;
       const aJeter = lots.filter((l) => lotStatus(l, now) === 'a_jeter').length;
@@ -278,6 +336,14 @@ export function createDemoApi(): Api {
       if (!lastFridgeReading) {
         const d = new Date(openedAt.getTime() + 12 * 60_000);
         if (dueAlert(d, now) !== 'ok') list.push({ title: 'Relevé frigo · ouverture', dueAt: d, alert: dueAlert(d, now), who: whoCan('releves') });
+      }
+      for (const h of hot.filter((x) => !x.ended)) {
+        const d = new Date(h.startedAt.getTime() + 3 * 3600_000);
+        if (dueAlert(d, now) !== 'ok') list.push({ title: `Maintien au chaud : ${h.product}`, dueAt: d, alert: dueAlert(d, now), who: whoCan('releves') });
+      }
+      if (checklists.get('ouverture') !== today()) {
+        const d = new Date(openedAt.getTime() + 20 * 60_000);
+        if (dueAlert(d, now) !== 'ok') list.push({ title: 'Checklist d’ouverture', dueAt: d, alert: dueAlert(d, now), who: whoCan('releves') });
       }
       return list.sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime());
     },

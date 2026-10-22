@@ -18,7 +18,7 @@ export function Allergenes({ api, onBack }: { api: Api; onBack: () => void }) {
 
   if (client) return (
     <div className="screen" style={{ background: '#fff', maxWidth: 'none', minHeight: '100vh' }}>
-      <div className="topbar"><button className="link" onClick={() => setClient(false)}>‹ Fermer</button><span className="title">Allergènes · Allergens · Alérgenos</span><span style={{ width: 70 }} /></div>
+      <div className="topbar"><button className="link" onClick={() => setClient(false)}>‹ Fermer</button><span className="title">Allergènes et origine</span><span style={{ width: 70 }} /></div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 15 }}>
           <thead><tr><th style={{ textAlign: 'left', padding: 8 }}>Plat</th>
@@ -30,6 +30,7 @@ export function Allergenes({ api, onBack }: { api: Api; onBack: () => void }) {
             </tr>))}</tbody>
         </table>
       </div>
+      <div style={{ padding: '4px 8px', fontSize: 15 }}><b>Origine des viandes · Origin of meat · Origen de la carne :</b> {[...new Set(dishes.map((d) => d.meatOrigin).filter(Boolean))].join(' · ') || '—'}</div>
       <p className="note">Contamination croisée possible. Demandez à notre équipe en cas d’allergie. · Cross-contamination possible, please ask our staff. · Posible contaminación cruzada, consulte a nuestro equipo.</p>
     </div>
   );
@@ -48,7 +49,7 @@ export function Allergenes({ api, onBack }: { api: Api; onBack: () => void }) {
                 </span></span>
               <span aria-hidden="true" style={{ color: '#C7C7CC' }}>{open === d.name ? '˄' : '˅'}</span>
             </button>
-            {open === d.name && <div className="note" style={{ paddingBottom: 12 }}>Ingrédients : {d.ingredients.join(', ')}.<br />Non présents : {ALLERGENS.filter(([k]) => !d.allergens.includes(k)).map(([, l]) => l.toLowerCase()).join(', ')}.</div>}
+            {open === d.name && <div className="note" style={{ paddingBottom: 12 }}>Ingrédients : {d.ingredients.join(', ')}.<br />{d.meatOrigin && <>Origine : {d.meatOrigin}<br /></>}Non présents : {ALLERGENS.filter(([k]) => !d.allergens.includes(k)).map(([, l]) => l.toLowerCase()).join(', ')}.</div>}
           </div>))}
       </div>
       <div style={{ marginTop: 'auto' }}><button className="btn btn-primary" onClick={() => setClient(true)}>Afficher pour le client</button></div>

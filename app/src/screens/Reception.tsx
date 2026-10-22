@@ -15,6 +15,7 @@ export function Reception({ api, session, onBack }: { api: Api; session: Session
   const [t, setT] = useState(30);                             // dixièmes de °C
   const [checks, setChecks] = useState([false, false, false, false]);
   const [photo, setPhoto] = useState(false);
+  const [own, setOwn] = useState(false);
   const [refusing, setRefusing] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState('');
@@ -37,7 +38,7 @@ export function Reception({ api, session, onBack }: { api: Api; session: Session
   const submit = async (accepted: boolean, reason: string | null) => {
     try {
       await api.reception(session.token, { ...f, temperature: t / 10, checks: checks as [boolean, boolean, boolean, boolean], accepted,
-        refusalReason: reason, photo, autofilled: blue.length > 0, barcode });
+        refusalReason: reason, photo, autofilled: blue.length > 0, barcode, ownTransport: own });
       setDone(accepted ? 'Réception acceptée' : 'Réception refusée · non-conformité ouverte'); setTimeout(onBack, 1400);
     } catch (e) { setError((e as Error).message); }
   };
@@ -52,8 +53,11 @@ export function Reception({ api, session, onBack }: { api: Api; session: Session
         <button className="btn btn-primary" style={{ height: 44, fontSize: 15 }} onClick={photoLabel}>Photo étiquette</button>
         <button className="btn" style={{ height: 44, fontSize: 15, background: '#fff', color: 'var(--blue)' }} onClick={scan}>Scanner code-barres</button>
       </div>
+      <label className="group row" style={{ fontSize: 16 }}>
+        <input type="checkbox" checked={own} onChange={(e) => setOwn(e.target.checked)} style={{ width: 22, height: 22, accentColor: 'var(--blue)' }} />
+        <span className="grow"><span>Achat transporté par nous (Prodega, Aligro…)</span><span className="sub">Glacière / plaques eutectiques · température mesurée à l’arrivée au stand (BPHR 2.5)</span></span></label>
       <div className="group">
-        <Field label="Fournisseur"><input style={blueStyle('supplier')} value={f.supplier} onChange={(e) => set('supplier', e.target.value)} /></Field>
+        <Field label={own ? 'Magasin' : 'Fournisseur'}><input style={blueStyle('supplier')} value={f.supplier} onChange={(e) => set('supplier', e.target.value)} /></Field>
         <Field label="Produit"><input style={blueStyle('product')} value={f.product} onChange={(e) => set('product', e.target.value)} /></Field>
         <Field label="N° de lot"><input style={blueStyle('lot')} value={f.lot} onChange={(e) => set('lot', e.target.value)} /></Field>
         <Field label="DLC"><input type="date" style={blueStyle('dlc')} value={f.dlc} onChange={(e) => set('dlc', e.target.value)} /></Field>

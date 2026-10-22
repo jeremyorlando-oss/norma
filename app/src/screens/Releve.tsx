@@ -18,6 +18,8 @@ export function Releve({ api, session, onBack }: { api: Api; session: Session; o
   const [step, setStep] = useState<'saisie' | 'ecart' | 'ok'>('saisie');
   const [actions, setActions] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [hold2, setHold2] = useState(false);
+  const [probe, setProbe] = useState(false);
 
   useEffect(() => { api.equipments().then((all) => { const e = all.filter((x) => x.type !== 'friteuse'); setEqs(e); setT(Math.round(e[0].defaultValue * 10)); }); }, [api]);
   const eq = eqs[eqIdx];
@@ -68,11 +70,16 @@ export function Releve({ api, session, onBack }: { api: Api; session: Session; o
         <span className={`badge ${status}`}>{LABEL[status]}</span>
         <span className="sub" style={{ fontSize: 13, color: 'var(--text-3)' }}>Glissez la molette vers le haut ou le bas</span>
       </div>
+      {eq.type === 'cuisson' && status !== 'rouge' && (
+        <div className="group">
+          <label className="row" style={{ fontSize: 16 }}><input type="checkbox" checked={probe} onChange={(e) => setProbe(e.target.checked)} style={{ width: 22, height: 22, accentColor: 'var(--blue)' }} /> Sonde désinfectée avant la mesure</label>
+          <label className="row" style={{ fontSize: 16 }}><input type="checkbox" checked={hold2} onChange={(e) => setHold2(e.target.checked)} style={{ width: 22, height: 22, accentColor: 'var(--blue)' }} /> Température maintenue au moins 2 minutes (BPHR 2.4.4)</label>
+        </div>)}
       <div className="error" role="alert">{error}</div>
       <div style={{ marginTop: 'auto' }}>
         {status === 'rouge'
           ? <button className="btn btn-danger" onClick={() => setStep('ecart')}>Continuer · action corrective</button>
-          : <button className="btn btn-primary" onClick={save}>Enregistrer</button>}
+          : <button className="btn btn-primary" disabled={eq.type === 'cuisson' && (!hold2 || !probe)} onClick={save}>Enregistrer</button>}
       </div>
     </div>
   );

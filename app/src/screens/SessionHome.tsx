@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import type { Api, Session } from '../api/types';
 import { dueAlert, type Right } from '../domain/rules';
 
-export type Target = 'releve' | 'nettoyage' | 'huile' | 'reception' | 'preparations' | 'allergenes' | 'signaler';
+export type Target = 'releve' | 'nettoyage' | 'huile' | 'reception' | 'preparations' | 'allergenes' | 'signaler' | 'checklist' | 'chaud';
 const TILES: { right: Right; title: string; target?: Target }[] = [
+  { right: 'releves', title: 'Checklists', target: 'checklist' },
   { right: 'releves', title: 'Températures', target: 'releve' },
+  { right: 'releves', title: 'Maintien au chaud', target: 'chaud' },
   { right: 'nettoyage', title: 'Nettoyage', target: 'nettoyage' },
   { right: 'releves', title: 'Huile', target: 'huile' },
   { right: 'reception', title: 'Réception', target: 'reception' },

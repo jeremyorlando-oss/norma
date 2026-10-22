@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Api, Session } from './api/types';
 import { Allergenes } from './screens/Allergenes';
+import { Checklist } from './screens/Checklist';
+import { Formation } from './screens/Formation';
+import { MaintienChaud } from './screens/MaintienChaud';
 import { Direction } from './screens/Direction';
 import { Huile } from './screens/Huile';
 import { Signaler } from './screens/Signaler';
@@ -12,7 +15,7 @@ import { PrisePoste } from './screens/PrisePoste';
 import { Releve } from './screens/Releve';
 import { SessionHome, type Target } from './screens/SessionHome';
 
-type View = 'home' | 'prise' | Target;
+type View = 'home' | 'prise' | 'formation' | Target;
 const IDLE_MS = 2 * 60_000;   // D35 : fermeture après 2 min sans activité
 
 export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
@@ -40,7 +43,7 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
   if (mode === 'direction' && !session) return <Direction api={api} onLogout={() => setMode('stand')}
     onDepannage={(s) => { setDepannage(true); setSession(s); setView(s.aptToday ? 'home' : 'prise'); }} />;
   if (!session) return <Pointage api={api} demoHint={demoHint} onDirection={() => setMode('direction')}
-    onSession={(s) => { setSession(s); setView(s.aptToday ? 'home' : 'prise'); }} />;
+    onSession={(s) => { setSession(s); setView(!s.aptToday ? 'prise' : !s.trained ? 'formation' : 'home'); }} />;
 
   const back = () => setView('home');
   return (
@@ -52,7 +55,10 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
           <path d="M12 3v9" /><path d="M6.3 7.2a8 8 0 1 0 11.4 0" />
         </svg>
       </button>
-      {view === 'prise' && <PrisePoste api={api} session={session} onDone={(ok) => { setSession({ ...session, aptToday: ok }); back(); }} />}
+      {view === 'prise' && <PrisePoste api={api} session={session} onDone={(ok) => { setSession({ ...session, aptToday: ok }); setView(session.trained ? 'home' : 'formation'); }} />}
+      {view === 'formation' && <Formation api={api} session={session} onDone={() => { setSession({ ...session, trained: true }); back(); }} />}
+      {view === 'checklist' && <Checklist api={api} session={session} onBack={back} />}
+      {view === 'chaud' && <MaintienChaud api={api} session={session} onBack={back} />}
       {depannage && <div style={{ background: 'var(--yellow)', textAlign: 'center', fontSize: 13, fontWeight: 600, padding: 6 }}>Saisie de dépannage depuis l’iPhone · {session.prenom}</div>}
       {view === 'home' && <SessionHome api={api} session={session} onOpen={setView}
         onDepointer={async () => { await api.depointer(session.token); setSession(null); }} />}
