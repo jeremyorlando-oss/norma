@@ -1,6 +1,6 @@
 # NORMA — Audit de conformité de l'application (22.10.2026)
 
-**Réponse : NON, pas encore entièrement.** Le socle est solide, mais **5 points sont à corriger** et **13 éléments à ajouter** pour couvrir tout ce que demandent les textes applicables à un stand dans le canton de Vaud.
+**Réponse : NON, pas encore entièrement.** Le socle est solide, mais **5 points sont à corriger** et **16 éléments à ajouter** (dont 3 issus de la lecture complète du BPHR) pour couvrir tout ce que demandent les textes applicables à un stand dans le canton de Vaud.
 
 Légende : **[LÉGAL]** loi/ordonnance · **[VD]** directive OFCO · **[BPHR]** guide de branche validé par l'OSAV (contraignant pour la branche et les autorités, BPHR avant-propos) · **[GE]** fiche officielle genevoise (bonne pratique, pas une obligation vaudoise) · **[INTERNE]** règle Original's Completos.
 
@@ -55,14 +55,44 @@ Autocontrôle documenté sous forme électronique (art. 85 ODAlOUs : « par écr
 | **Bacs et contenants de stockage** (nouveau) | — | À chaque vidage, avant réutilisation |
 | **Tablette NORMA** (nouveau) | — | Désinfectée au début et en fin de service (touchée par toute l'équipe) |
 
-## E. Points encore à vérifier
+## E. Vérifié dans le guide BPHR complet (lu le 22.10.2026)
 
-1. **Tableaux 6.2 (températures par catégorie), 6.3 (durées de conservation) et 4.2 (documentation selon la taille)** du BPHR : non lisibles en ligne. Ils peuvent confirmer ou **remettre en cause la règle J+2** des préparations maison et la température de la mayonnaise. → Il faut le PDF du guide.
-2. **Mayonnaise industrielle pasteurisée** : à confirmer sur l'étiquette Prodega ([BPHR] 2.4.5 : œufs pasteurisés pour les préparations aux œufs ; [GE] déconseille la mayonnaise maison sur les stands).
-3. Détail des allègements de documentation pour très petits établissements (art. 85 al. 3 ODAlOUs) : à préciser avec le chapitre 4.2 du BPHR.
+**Durées et températures (BPHR 6.2 et 6.3.1) — la règle J+2 est confirmée :**
+- « Salades de légumes crus, salades de légumes avec sauce » : **date de production + 2 jours** (coleslaw, guacamole).
+- « Légumes cuits, produits précuits (pâtes, sauces, etc.) » : **date de production + 2 jours** (purée de haricots, sauces).
+- Durées données « à titre indicatif pour des températures inférieures à 5 °C », avec contrôle sensoriel au cas par cas.
+- « Mets à base d'œufs crus » : le jour même. Ne s'applique pas : la mayonnaise utilisée est **pasteurisée** (confirmé par le Gérant le 22.10.2026). Mais les sauces à base de mayonnaise ne peuvent pas dépasser la date limite **après ouverture** indiquée sur le pot de mayonnaise (BPHR 6.3.1 : emballages ouverts → indications de l'étiquette).
+- Températures maximales : aliments facilement périssables **5 °C**, ovoproduits **4 °C**, viande hachée 5 °C, surgelés −18 °C. Règle interne 0–4 °C conforme.
+- Interruption de la chaîne du froid : **30 minutes maximum** recommandées.
+
+**Documentation exigée pour un établissement de catégorie D, « très petit » (BPHR 4.2.4) :** le stand relève de cette catégorie (autocontrôle mis en œuvre par la personne responsable, documentation « limitée au minimum »). Points du tableau couverts ou à ajouter :
+
+| Exigence catégorie D | NORMA |
+|---|---|
+| Carte des mets ; annonce à l'autorité ; dossier des autorisations | Allergènes / Administratif ✅ (annonce OFCO à faire) |
+| Liste du personnel et annuaire téléphonique | Équipe ✅ (+ contacts d'urgence à ajouter) |
+| Formation : attestation de participation **et vérification du contenu** | **C2 : ajouter un court quiz** après le briefing |
+| Règlement écrit hygiène et santé + instructions sur l'obligation d'annoncer une maladie | **C2 : charte affichée et acceptée dans l'app** |
+| Accès des personnes étrangères à la zone de travail réglementé par écrit | **Nouveau C14 : règle « accès réservé au personnel » dans la charte et la checklist de montage** |
+| Instruments de mesure vérifiés | C3 |
+| Matériel de nettoyage identifié (usage, application, dosage) + plan de nettoyage | C10 |
+| Nuisibles : contrôle visuel régulier | C4 |
+| Réception : contrôle confirmé par signature, température incluse ; refus défini | ✅ |
+| Stockage : contrôle visuel séparation, étiquetage, **FIFO**, datage, avec documentation ; température contrôlée chaque jour, écrite **1× / semaine** et en cas d'écart | C7 (+ FIFO) ; relevés 2× / jour ✅ (au-delà du minimum) |
+| Production : recettes, séparation des flux, durées et températures selon 6.2 | ✅ |
+| Allergies : « système de préparation et de remise de plats aux clients souffrant d'allergies » | **Nouveau C15 : bouton « Commande allergie » (signal à la cuisine + procédure : ustensiles dédiés, gants changés, priorité)** |
+| Vente : **contrôle par sondage et documentation de la température à cœur des plats** | ✅ relevé de cuisson / réchauffe |
+| Restes : étiquetage pour la traçabilité | ✅ lots |
+| Transport : contrôle visuel des contenants + température documentée | C8 |
+| **Mention écrite** : sur demande, les clients sont informés oralement des allergènes | **Nouveau C16 : affichette imprimable** + vue client ✅ |
+| Traçabilité : archivage des bons de livraison | ✅ photo du bon |
+| **Notice « aliments dangereux remis »** avec contacts | C5 |
+| Contrôle et actualisation périodiques du concept d'autocontrôle | C12 |
+
+**Stands et établissements occasionnels (BPHR 2.2.6)** : stand protégé de la vermine, propre et en bon état ; sanitaires et lavabos disponibles ; eau potable en quantité suffisante ; aliments protégés (toit/auvent, protection anti-postillons) ; équipements de froid et de chaud avec contrôle ; déchets stockés et transportés séparément. → contenu de la **checklist de montage C1**.
 
 ## Sources
-- BPHR, 2ᵉ éd. 2019, validé par l'OSAV le 21.09.2018 : https://www.vd.ch/fileadmin/user_upload/themes/economie_emploi/protection_consommateur/fichiers_pdf/BPHR.PDF
+- BPHR, 2ᵉ éd. 2019, validé par l'OSAV le 21.09.2018 (lu intégralement : chap. 2.2.6, 2.3, 2.4, 4.2.4, 6.2, 6.3) : https://www.vd.ch/fileadmin/user_upload/themes/economie_emploi/protection_consommateur/fichiers_pdf/BPHR.PDF
 - OFCO Vaud, directive manifestations 08.04.2019 : https://www.vd.ch/fileadmin/user_upload/themes/economie_emploi/protection_consommateur/fichiers_pdf/Directive_commerce_DAl_manif.pdf
 - ODAlOUs art. 76, 83, 84, 85 (état 01.07.2025) : https://justement.ch/fr/doc/act/ch/817_02/chap_4
 - Canton de Genève, bonnes pratiques sur un stand : https://www.ge.ch/exploiter-stand-alimentaire-cadre-manifestation-publique/bonnes-pratiques-exigences-minimales-requises-matiere-hygiene-stand
