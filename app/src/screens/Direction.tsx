@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AdminDoc, Api, DayStats, Member, Nc, NcStep, Session } from '../api/types';
+import type { AdminDoc, Api, EventInfo, DayStats, Member, Nc, NcStep, Session } from '../api/types';
 import { Segmented } from '../components/Controls';
+import { Evenements } from './Evenements';
 
 type Tab = 'jour' | 'nc' | 'equipe' | 'plus';
 const STEP_LABEL: Record<NcStep['step'], string> = { mesure_immediate: 'Mesure immédiate', evaluation_risque: 'Évaluation du risque',
@@ -30,9 +31,10 @@ export function Direction({ api, onDepannage, onLogout }: { api: Api; onDepannag
       <div><div className="eyebrow">{session.poste}</div><h1 className="h1">{tab === 'jour' ? 'Aujourd’hui' : tab === 'nc' ? 'Incidents' : tab === 'equipe' ? 'Équipe' : 'Plus'}</h1></div>
       <Segmented label="Sections" value={tab} onChange={setTab}
         options={[{ value: 'jour', label: 'Jour' }, { value: 'nc', label: 'Incidents' }, { value: 'equipe', label: 'Équipe' }, { value: 'plus', label: 'Plus' }]} />
-      {tab === 'jour' && <Jour api={api} />}
+      {tab === 'jour' && <Jour api={api} onEvents={() => setTab('plus')} />}
       {tab === 'nc' && <Incidents api={api} session={session} />}
       {tab === 'equipe' && <Equipe api={api} session={session} />}
+      {tab === 'plus' && <Evenements api={api} session={session} />}
       {tab === 'plus' && (
         <div className="group">
           <button className="row" style={rowBtn} onClick={() => onDepannage(session)}>
@@ -73,12 +75,13 @@ function Documents({ api, session }: { api: Api; session: Session }) {
   );
 }
 
-function Jour({ api }: { api: Api }) {
+function Jour({ api, onEvents }: { api: Api; onEvents: () => void }) {
   const [s, setS] = useState<DayStats | null>(null);
+  const [ev, setEv] = useState<EventInfo | null | undefined>(undefined);
   const [team, setTeam] = useState<Member[]>([]);
   const [open, setOpen] = useState(0);
   useEffect(() => {
-    api.dayStats(new Date()).then(setS); api.team().then(setTeam);
+    api.dayStats(new Date()).then(setS); api.currentEvent(new Date()).then(setEv); api.team().then(setTeam);
     api.nonconformities().then((n) => setOpen(n.filter((x) => !x.closed).length));
   }, [api]);
   if (!s) return null;
@@ -87,6 +90,8 @@ function Jour({ api }: { api: Api }) {
   const present = team.filter((m) => m.clockedIn);
   return (
     <>
+      {ev !== undefined && <button className="group row" style={{ width: '100%', border: 'none', textAlign: 'left', fontSize: 16 }} onClick={onEvents}>
+        <span className="grow"><span className="main">{ev ? ev.name : 'Aucun événement en cours'}</span><span className="sub">{ev ? ev.place : 'Créer ou ouvrir un événement'}</span></span>›</button>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
         {tile(open, 'Incidents ouverts', true)}{tile(s.nettoyagesEnRetard, 'Nettoyages en retard', true)}{tile(s.lotsAJeter, 'Lots à jeter', true)}
         {tile(s.releves, 'Relevés')}{tile(s.nettoyagesFaits, 'Nettoyages faits')}{tile(s.receptions, 'Réceptions')}

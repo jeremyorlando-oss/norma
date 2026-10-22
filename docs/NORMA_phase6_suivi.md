@@ -39,3 +39,4 @@
 Tests : 74 vérifications automatiques, toutes réussies (22.10.2026), sur base PostgreSQL de test locale.
 
 - Traductions ES/EN de l’app stand (langue choisie par membre ; Direction et rapports en français). Textes à relire par une personne de langue maternelle ; produits de nettoyage traduits quand les vraies données seront saisies.
+- Événements (point 5) : fiche (lieu, dates, organisateur, annonce OFCO, équipe, matériel, notes), en-tête du rapport « nom · lieu · jour n/N », checklist de montage 1× par événement, bilan, nom affiché sur la tablette. Migration 005 : ajouter place, organizer, ofco_ref, notes, event_member, event_equipment.

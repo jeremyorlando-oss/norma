@@ -61,6 +61,12 @@ export interface Nc { id: string; kind: string; description: string; openedBy: s
 export interface Member { id: string; prenom: string; poste: string; clockedIn: boolean; since: Date | null; aptToday: boolean | null }
 export interface DayStats { releves: number; relevesRouges: number; nettoyagesFaits: number; nettoyagesEnRetard: number; lotsAJeter: number; receptions: number }
 
+/** Événement (stand sur une manifestation) : en-tête du rapport, checklist de montage, bilan. */
+export interface EventInfo { id: string; name: string; place: string; start: Date; end: Date; organizer: string; ofcoRef: string; team: string[]; equipment: string[]; notes: string }
+export type EventInput = Omit<EventInfo, 'id'> & { id?: string };
+export interface EventSummary { jours: number; releves: number; relevesRouges: number; ncOuvertes: number; ncCloturees: number; nettoyages: number;
+  receptions: number; lotsProduits: number; lotsJetes: number; heures: number; personnes: number; checklistsMontage: boolean }
+
 /** Contrat commun : implémenté par la démo (mémoire) et par Supabase (fonctions RPC du serveur). */
 export interface Api {
   openSession(pin: string): Promise<Session>;
@@ -101,4 +107,10 @@ export interface Api {
   openProduct(token: string, name: string, daysAfterOpening: number): Promise<Lot>;
   documents(): Promise<AdminDoc[]>;
   haccpReview(token: string | null): Promise<Date | null>;     // null = lecture ; token = enregistrer une revue
+  // Événements
+  events(): Promise<EventInfo[]>;
+  currentEvent(now: Date): Promise<EventInfo | null>;
+  saveEvent(token: string, e: EventInput): Promise<void>;
+  deleteEvent(token: string, id: string): Promise<void>;
+  eventSummary(id: string, now: Date): Promise<EventSummary>;
 }

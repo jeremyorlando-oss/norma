@@ -1,7 +1,7 @@
 // Démo autonome : mêmes règles que le serveur, données en mémoire (rien n'est enregistré).
 import { dueAlert, isWeakPin, lotCode, readingStatus, useBy, type Right } from '../domain/rules';
 import type { DayReport } from '../report/dailyReport';
-import type { AdminDoc, Api, CleaningTask, Dish, Equipment, HotBatch, Lot, Nc, Recipe, Session, StandAlert } from './types';
+import type { EventInfo, EventSummary, AdminDoc, Api, CleaningTask, Dish, Equipment, HotBatch, Lot, Nc, Recipe, Session, StandAlert } from './types';
 
 const ALL: Right[] = ['pointage', 'prise_poste', 'nettoyage', 'signaler_nc', 'allergenes_lecture', 'releves', 'reception',
   'preparations', 'jeter_lot', 'traiter_nc', 'cloturer_nc', 'tableau_bord', 'heures_equipe', 'export', 'equipements',
@@ -55,7 +55,20 @@ export function createDemoApi(): Api {
   ];
   const catalog = new Map<string, { product: string; supplier: string }>();
   const trained = new Set<string>(['m1']);
-  const checklists = new Map<string, string>();      // mode -> jour fait
+  const checklists = new Map<string, string>();      // mode -> jour fait (montage : id de l'événement)
+  const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const addDays = (d: Date, n: number) => { const x = dayStart(d); x.setDate(x.getDate() + n); return x; };
+  const events: EventInfo[] = [
+    { id: 'ev1', name: 'Festival (exemple)', place: 'Lausanne', start: addDays(new Date(), -1), end: addDays(new Date(), 1), organizer: 'Association du festival',
+      ofcoRef: '', team: ['m1', 'm2', 'm3', 'm4', 'm5'], equipment: ['e1', 'e2', 'e3', 'e4', 'e5', 'e6'], notes: 'Électricité 16 A fournie par l’organisateur' },
+    { id: 'ev0', name: 'Marché (exemple)', place: 'Morges', start: addDays(new Date(), -40), end: addDays(new Date(), -38), organizer: 'Commune',
+      ofcoRef: 'Annoncé', team: ['m1', 'm3', 'm4'], equipment: ['e1', 'e3', 'e4', 'e6'], notes: '' },
+  ];
+  const pastSummary: Record<string, EventSummary> = { ev0: { jours: 3, releves: 38, relevesRouges: 1, ncOuvertes: 0, ncCloturees: 2, nettoyages: 61,
+    receptions: 9, lotsProduits: 14, lotsJetes: 3, heures: 87, personnes: 3, checklistsMontage: true } };
+  const current = (now: Date) => events.find((e) => dayStart(now) >= e.start && dayStart(now) <= e.end) ?? null;
+  const dayOf = (e: EventInfo, now: Date) => Math.round((dayStart(now).getTime() - e.start.getTime()) / 86_400_000) + 1;
+  const length = (e: EventInfo) => Math.round((e.end.getTime() - e.start.getTime()) / 86_400_000) + 1;
   const hot: HotBatch[] = [];
   let lastReview: Date | null = null;
   const recipes: Recipe[] = [
@@ -257,7 +270,7 @@ export function createDemoApi(): Api {
       const steps: Record<string, string> = { mesure_immediate: 'Mesure immédiate', evaluation_risque: 'Évaluation du risque', action_corrective: 'Action corrective', verification: 'Vérification', cloture: 'Clôture' };
       return {
         company: { name: "ORIGINAL'S COMPLETOS", address: 'Bussigny, Suisse', phone: '078 352 12 02', email: 'info@originalscompletos.ch', responsable: 'Orlando Quispe Oscco' },
-        event: '[Nom de l’événement] · démo', date: now, generatedAt: now,
+        event: (() => { const e = current(now); return e ? `${e.name} · ${e.place} · jour ${dayOf(e, now)}/${length(e)}` : 'Hors événement'; })(), date: now, generatedAt: now,
         thresholds: [
           { label: 'Froid positif', value: '0 à 4 °C', source: 'Règle interne (VD : 5 °C max)' },
           { label: 'Congélateur', value: '≤ −18 °C', source: 'Directive OFCO VD 08.04.2019' },
@@ -275,12 +288,38 @@ export function createDemoApi(): Api {
           steps: n.steps.map((s) => `${hm(s.at)} ${steps[s.step]} : ${s.content} (${s.by})`) })),
       };
     },
-    async checklistDone(mode) { return checklists.get(mode) === today(); },
+    async events() { return [...events].sort((a, b) => b.start.getTime() - a.start.getTime()).map((e) => ({ ...e })); },
+    async currentEvent(now) { const e = current(now); return e ? { ...e } : null; },
+    async saveEvent(token, input) {
+      const m = member(token);
+      if (!can(m, 'gestion_equipe')) throw new Error('Gestion des événements non autorisée');
+      if (!input.name.trim()) throw new Error('Nom de l’événement obligatoire');
+      if (input.end < input.start) throw new Error('La date de fin est avant la date de début');
+      const e = { ...input, id: input.id ?? crypto.randomUUID(), start: dayStart(input.start), end: dayStart(input.end) };
+      const i = events.findIndex((x) => x.id === e.id);
+      if (i >= 0) events[i] = e; else events.push(e);
+    },
+    async deleteEvent(token, id) {
+      const m = member(token);
+      if (!can(m, 'reglages_gerant')) throw new Error('Seul le Gérant peut supprimer un événement');
+      if (pastSummary[id] || current(new Date())?.id === id) throw new Error('Événement avec des enregistrements : suppression impossible');
+      events.splice(events.findIndex((x) => x.id === id), 1);
+    },
+    async eventSummary(id, now) {
+      if (pastSummary[id]) return pastSummary[id];
+      const e = events.find((x) => x.id === id)!;
+      if (current(now)?.id !== id) return { jours: length(e), releves: 0, relevesRouges: 0, ncOuvertes: 0, ncCloturees: 0, nettoyages: 0, receptions: 0, lotsProduits: 0, lotsJetes: 0, heures: 0, personnes: 0, checklistsMontage: false };
+      const h = [...clockedIn.values()].reduce((s, d) => s + (now.getTime() - d.getTime()) / 3_600_000, 0);
+      return { jours: length(e), releves: stats.releves, relevesRouges: stats.relevesRouges, ncOuvertes: ncs.filter((n) => !n.closed).length, ncCloturees: ncs.filter((n) => n.closed).length,
+        nettoyages: stats.nettoyagesFaits, receptions: stats.receptions, lotsProduits: lots.length, lotsJetes: lots.filter((l) => l.disposed).length,
+        heures: Math.round(h * 10) / 10, personnes: clockedIn.size, checklistsMontage: checklists.get('montage') === id };
+    },
+    async checklistDone(mode) { return checklists.get(mode) === (mode === 'montage' ? current(new Date())?.id ?? today() : today()); },
     async saveChecklist(token, mode, answers, labels) {
       const m = member(token);
       const no = Object.entries(answers).filter(([, v]) => !v);
       no.forEach(([k]) => openNc('Checklist ' + mode, labels[k] + ' : NON', m.prenom));
-      checklists.set(mode, today());
+      checklists.set(mode, mode === 'montage' ? current(new Date())?.id ?? today() : today());
       return no.length;
     },
     async saveTraining(token, score) {

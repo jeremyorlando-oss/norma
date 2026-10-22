@@ -7,6 +7,8 @@ const BG = { ok: '#FFFFFF', jaune: 'var(--yellow-screen)', rouge: 'var(--red-scr
 
 export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; onSession: (s: Session) => void; demoHint?: string; onDirection?: () => void }) {
   const t = useT();
+  const [eventName, setEventName] = useState('');
+  useEffect(() => { api.currentEvent(new Date()).then((e) => setEventName(e ? `${e.name} · ${e.place}` : '')); }, [api]);
   const [now, setNow] = useState(new Date());
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -39,6 +41,7 @@ export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; 
           <div className="eyebrow" style={{ color: '#3C3C43' }}>
             {now.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long' })}
           </div>
+          {eventName && <div style={{ fontSize: 15, fontWeight: 600, color: '#3C3C43' }}>{eventName}</div>}
           <div className="clock">{now.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>
         </div>
 
