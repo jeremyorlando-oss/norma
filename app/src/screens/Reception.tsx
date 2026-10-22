@@ -1,6 +1,8 @@
 import { useT } from '../i18n';
-import { useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { compressPhoto, readBarcode, readLabel } from '../scan/camera';
+import { LiveScanner } from '../components/LiveScanner';
+import type { LabelFields } from '../scan/parseLabel';
 import type { Api, Session } from '../api/types';
 import { Field, inputStyle, TopBar, YesNo } from '../components/Controls';
 import { Wheel } from '../components/Wheel';
@@ -19,6 +21,10 @@ export function Reception({ api, session, onBack }: { api: Api; session: Session
   const [checks, setChecks] = useState([false, false, false, false]);
   const [photo, setPhoto] = useState<string | null>(null);
   const [busy, setBusy] = useState('');
+  const [live, setLive] = useState<null | 'barcode' | 'label'>(null);
+  const [noLive, setNoLive] = useState(false);
+  const [suppliers, setSuppliers] = useState<string[]>([]);
+  useEffect(() => { api.suppliers().then(setSuppliers); }, [api]);
   const labelIn = useRef<HTMLInputElement>(null), codeIn = useRef<HTMLInputElement>(null), slipIn = useRef<HTMLInputElement>(null);
   const [own, setOwn] = useState(false);
   const [refusing, setRefusing] = useState(false);
@@ -29,13 +35,15 @@ export function Reception({ api, session, onBack }: { api: Api; session: Session
   const filled = f.supplier && f.product && f.lot && f.dlc;
   const set = (k: keyof typeof f, v: string) => { setF({ ...f, [k]: v }); setBlue(blue.filter((x) => x !== k)); setError(''); };
 
+  const applyLabel = (r: LabelFields) => {
+    const got = (['supplier', 'lot', 'dlc'] as const).filter((k) => r[k]);
+    if (!got.length) { setError(tr('Étiquette illisible : saisissez à la main ou reprenez la photo de plus près.')); return; }
+    setF((cur) => ({ ...cur, ...Object.fromEntries(got.map((k) => [k, r[k]!])) })); setBlue((b) => [...new Set([...b, ...got])]);
+  };
   const photoLabel = async (file: File) => {
     setError(''); setBusy(tr('Lecture de l’étiquette…'));
     try {
-      const r = await readLabel(file, await api.suppliers());
-      const got = (['supplier', 'lot', 'dlc'] as const).filter((k) => r[k]);
-      if (!got.length) { setError(tr('Étiquette illisible : saisissez à la main ou reprenez la photo de plus près.')); return; }
-      setF({ ...f, ...Object.fromEntries(got.map((k) => [k, r[k]!])) }); setBlue([...new Set([...blue, ...got])]);
+      applyLabel(await readLabel(file, suppliers));
     } catch { setError(tr('Lecture impossible (connexion internet nécessaire la première fois).')); }
     finally { setBusy(''); }
   };
@@ -43,9 +51,12 @@ export function Reception({ api, session, onBack }: { api: Api; session: Session
     setError(''); setBusy(tr('Lecture du code-barres…'));
     const code = await readBarcode(file); setBusy('');
     if (!code) { setError(tr('Code-barres illisible : reprenez la photo bien à plat, de plus près.')); return; }
+    await applyCode(code);
+  };
+  const applyCode = async (code: string) => {
     setBarcode(code);
     const r = await api.scanBarcode(session.token, code);
-    if (r) { setF({ ...f, supplier: r.supplier, product: r.product }); setBlue([...new Set([...blue, 'supplier', 'product'])]); }
+    if (r) { setF((cur) => ({ ...cur, supplier: r.supplier, product: r.product })); setBlue((b) => [...new Set([...b, 'supplier', 'product'])]); }
     else setError(tr('Nouveau produit : saisissez son nom et son fournisseur une seule fois.'));
   };
   const pick = (ref: RefObject<HTMLInputElement>, fn: (f: File) => void) => (
@@ -65,11 +76,14 @@ export function Reception({ api, session, onBack }: { api: Api; session: Session
     <div className="screen">
       <TopBar title={tr('Réception')} onBack={onBack} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <button className="btn btn-primary" style={{ height: 44, fontSize: 15 }} disabled={!!busy} onClick={() => labelIn.current?.click()}>{tr('Photo étiquette')}</button>
-        <button className="btn" style={{ height: 44, fontSize: 15, background: '#fff', color: 'var(--blue)' }} disabled={!!busy} onClick={() => codeIn.current?.click()}>{tr('Scanner code-barres')}</button>
+        <button className="btn btn-primary" style={{ height: 44, fontSize: 15 }} disabled={!!busy} onClick={() => { setError(''); if (noLive) labelIn.current?.click(); else setLive('label'); }}>{tr('Photo étiquette')}</button>
+        <button className="btn" style={{ height: 44, fontSize: 15, background: '#fff', color: 'var(--blue)' }} disabled={!!busy} onClick={() => { setError(''); if (noLive) codeIn.current?.click(); else setLive('barcode'); }}>{tr('Scanner code-barres')}</button>
       </div>
       {pick(labelIn, photoLabel)}{pick(codeIn, scan)}{pick(slipIn, async (x) => setPhoto(await compressPhoto(x)))}
       {busy && <p className="note" role="status">{busy}</p>}
+      {live && <LiveScanner mode={live} suppliers={suppliers} onCancel={() => setLive(null)}
+        onUnavailable={() => { setLive(null); setNoLive(true); setError(tr('Caméra en direct indisponible ici : touchez à nouveau le bouton pour prendre une photo.')); }}
+        onResult={(r) => { setLive(null); if (r.kind === 'barcode') applyCode(r.code); else applyLabel(r.fields); }} />}
       {barcode && <p className="note">{tr('Code-barres')} : {barcode}</p>}
       <label className="group row" style={{ fontSize: 16 }}>
         <input type="checkbox" checked={own} onChange={(e) => setOwn(e.target.checked)} style={{ width: 22, height: 22, accentColor: 'var(--blue)' }} />

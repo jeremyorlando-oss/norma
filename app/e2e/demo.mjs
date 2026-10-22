@@ -1,5 +1,7 @@
 import { chromium } from 'playwright';
-const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell' });
+const cam = new URL('./fixtures/camera.y4m', import.meta.url).pathname;   // fausse caméra : étiquette + code-barres
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell',
+  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--use-file-for-fake-video-capture=' + cam] });
 const p = await b.newPage({ viewport: { width: 820, height: 1180 } });
 const errs = []; p.on('pageerror', e => errs.push(e.message));
 // OCR hors CDN pour les tests : modèles servis localement (voir e2e/README)
@@ -50,12 +52,12 @@ await p.getByRole('button', { name: 'Enregistrer' }).click(); await p.waitForTim
 console.log('huile:', await p.locator('.badge').innerText()); await p.waitForTimeout(1700);
 // Réception
 await p.getByRole('button', { name: /Réception/ }).click(); await p.waitForTimeout(150);
-const [fc1] = await Promise.all([p.waitForEvent('filechooser'), p.getByRole('button', { name: 'Photo étiquette' }).click()]);
-await fc1.setFiles(fx('etiquette.png')); await p.getByRole('status').waitFor({ state: 'detached', timeout: 60000 });
-console.log('OCR étiquette:', await p.locator('input').evaluateAll(xs => xs.filter(x => x.type !== 'file' && x.type !== 'checkbox').slice(0, 4).map(x => x.value).filter(Boolean).join(' | ')), '·', await p.getByRole('alert').innerText());
-const [fc2] = await Promise.all([p.waitForEvent('filechooser'), p.getByRole('button', { name: 'Scanner code-barres' }).click()]);
-await fc2.setFiles(fx('ean.png')); await p.waitForTimeout(800);
-console.log('code-barres:', await p.getByText(/^Code-barres :/).innerText(), '·', await p.getByRole('alert').innerText());
+await p.getByRole('button', { name: 'Photo étiquette' }).click();
+await p.getByRole('dialog').waitFor({ state: 'detached', timeout: 120000 });
+console.log('caméra auto étiquette:', await p.locator('input').evaluateAll(xs => xs.filter(x => x.type !== 'file' && x.type !== 'checkbox').slice(0, 4).map(x => x.value).filter(Boolean).join(' | ')), '·', await p.getByRole('alert').innerText());
+await p.getByRole('button', { name: 'Scanner code-barres' }).click();
+await p.getByRole('dialog').waitFor({ state: 'detached', timeout: 30000 });
+console.log('caméra auto code-barres:', await p.getByText(/^Code-barres :/).innerText(), '·', await p.getByRole('alert').innerText());
 await p.getByLabel('Produit', { exact: true }).fill('Saucisse volaille hot dog');
 const [fc3] = await Promise.all([p.waitForEvent('filechooser'), p.getByRole('button', { name: /bon de livraison/ }).click()]);
 await fc3.setFiles(fx('etiquette.png')); await p.waitForTimeout(300);

@@ -198,6 +198,10 @@ const ROWS: [string, string, string][] = [
   ['Code-barres illisible : reprenez la photo bien à plat, de plus près.', 'Código ilegible: repita la foto de frente y más de cerca.', 'Barcode unreadable: retake the photo straight on and closer.'],
   ['Code-barres', 'Código de barras', 'Barcode'], ['Bon de livraison', 'Albarán', 'Delivery note'],
   ['✓ Photo prise · toucher pour reprendre', '✓ Foto tomada · tocar para repetir', '✓ Photo taken · tap to retake'], ['Toucher pour photographier', 'Tocar para fotografiar', 'Tap to take a photo'],
+  ['Ouverture de la caméra…', 'Abriendo la cámara…', 'Opening the camera…'], ['Montrez le code-barres dans le cadre', 'Muestre el código de barras en el recuadro', 'Show the barcode inside the frame'],
+  ['Montrez l’étiquette : lot et date doivent être visibles', 'Muestre la etiqueta: el lote y la fecha deben verse', 'Show the label: batch and date must be visible'],
+  ['Prendre la photo', 'Tomar la foto', 'Take the photo'],
+  ['Caméra en direct indisponible ici : touchez à nouveau le bouton pour prendre une photo.', 'Cámara en directo no disponible aquí: toque de nuevo el botón para tomar una foto.', 'Live camera not available here: tap the button again to take a photo.'],
   ['ex. Mayonnaise 5 kg', 'ej. Mayonesa 5 kg', 'e.g. Mayonnaise 5 kg'],
   // — Préparations
   ['+ Nouvelle préparation', '+ Nueva preparación', '+ New preparation'], ['Nouvelle préparation', 'Nueva preparación', 'New preparation'],
