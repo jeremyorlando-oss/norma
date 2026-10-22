@@ -1,0 +1,73 @@
+import { useEffect, useState } from 'react';
+import type { Api, Session, StandAlert } from '../api/types';
+import { formatDelay, worstAlert } from '../domain/rules';
+
+const BG = { ok: '#FFFFFF', jaune: 'var(--yellow-screen)', rouge: 'var(--red-screen)' } as const;
+
+export function Pointage({ api, onSession, demoHint }: { api: Api; onSession: (s: Session) => void; demoHint?: string }) {
+  const [now, setNow] = useState(new Date());
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [alerts, setAlerts] = useState<StandAlert[]>([]);
+
+  useEffect(() => {
+    const tick = () => { const n = new Date(); setNow(n); api.alerts(n).then(setAlerts); };
+    tick();
+    const id = setInterval(tick, 15_000);
+    return () => clearInterval(id);
+  }, [api]);
+
+  const press = async (k: string) => {
+    setError('');
+    if (k === '⌫') return setCode(code.slice(0, -1));
+    const c = (code + k).slice(0, 4);
+    setCode(c);
+    if (c.length === 4) {
+      try { onSession(await api.openSession(c)); }
+      catch (e) { setError((e as Error).message); }
+      finally { setCode(''); }
+    }
+  };
+
+  const level = worstAlert(alerts.map((a) => a.alert));
+  return (
+    <div className="full-bg" style={{ background: BG[level] }}>
+      <div className="screen" style={{ alignItems: 'center', gap: 14 }}>
+        <div style={{ textAlign: 'center', paddingTop: 16 }}>
+          <div className="eyebrow" style={{ color: '#3C3C43' }}>
+            {now.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </div>
+          <div className="clock">{now.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}</div>
+        </div>
+
+        {alerts.length > 0 && (
+          <div className="group" style={{ width: '100%' }} role="status" aria-live="polite">
+            {alerts.map((a) => (
+              <div className="row" key={a.title} style={{ alignItems: 'flex-start' }}>
+                <span style={{ width: 12, height: 12, borderRadius: 6, marginTop: 5, flexShrink: 0,
+                  background: a.alert === 'rouge' ? 'var(--red)' : 'var(--yellow)', border: a.alert === 'jaune' ? '1px solid #B38F00' : undefined }} />
+                <span className="grow">
+                  <span style={{ fontSize: 15, fontWeight: 600 }}>{a.title}</span>
+                  <span className={`pill ${a.alert}`}>{formatDelay(a.dueAt, now)}</span>
+                  <span className="sub" style={{ fontSize: 12 }}>Peut le faire : {a.who}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ fontSize: 17 }}>Tapez votre code</div>
+        <div className={`dots ${error ? 'shake' : ''}`} aria-label={`${code.length} chiffres saisis`}>
+          {[0, 1, 2, 3].map((i) => <span key={i} className={`dot ${i < code.length ? 'on' : ''}`} />)}
+        </div>
+        <div className="error" role="alert">{error}</div>
+        <div className="keypad">
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((k, i) =>
+            k === '' ? <span key={i} /> :
+              <button key={i} className={`key ${k === '⌫' ? 'ghost' : ''}`} aria-label={k === '⌫' ? 'Effacer' : k} onClick={() => press(k)}>{k}</button>)}
+        </div>
+        {demoHint && <div className="demo-banner">{demoHint}</div>}
+      </div>
+    </div>
+  );
+}
