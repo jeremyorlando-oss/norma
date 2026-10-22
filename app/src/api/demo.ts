@@ -191,11 +191,7 @@ export function createDemoApi(): Api {
       if (!i.accepted) openNc('Réception', `${i.product} refusé : ${i.refusalReason}`, m.prenom);
     },
     async scanBarcode(token, code) { member(token); return catalog.get(code) ?? null; },
-    async readLabelPhoto(token) {
-      member(token);
-      const d = daysAgo(-6);
-      return { supplier: 'Carnadis Sàrl', product: 'Saucisse volaille hot dog', lot: 'L2610-77', dlc: d.toISOString().slice(0, 10) };
-    },
+    async suppliers() { return [...new Set(['Carnadis Sàrl', 'Prodega', 'Aligro', 'Transgourmet', ...[...catalog.values()].map((c) => c.supplier)])]; },
     async recipes() { return recipes; },
     async lots(now) { return lots.map((l) => ({ ...l, status: lotStatus(l, now) })); },
     async preparation(token, recipeId) {

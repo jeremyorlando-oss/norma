@@ -9,11 +9,16 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@zxing/browser": "0.2.1",
+    "@zxing/library": "0.23.0",
     "pdfmake": "^0.2.10",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tesseract.js": "7.0.0"
   },
   "devDependencies": {
+    "@tesseract.js-data/deu": "1.0.0",
+    "@tesseract.js-data/fra": "1.0.0",
     "@types/pdfmake": "^0.2.9",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

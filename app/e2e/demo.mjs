@@ -2,7 +2,10 @@ import { chromium } from 'playwright';
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell' });
 const p = await b.newPage({ viewport: { width: 820, height: 1180 } });
 const errs = []; p.on('pageerror', e => errs.push(e.message));
-await p.goto('file://' + process.argv[2]);
+// OCR hors CDN pour les tests : modèles servis localement (voir e2e/README)
+if (process.argv[2].startsWith('http')) await p.addInitScript(() => { window.__NORMA_OCR = { workerPath: '/node_modules/tesseract.js/dist/worker.min.js', corePath: '/node_modules/tesseract.js-core', langPath: '/lang' }; });
+await p.goto(process.argv[2].startsWith('http') ? process.argv[2] : 'file://' + process.argv[2]);
+const fx = n => new URL('./fixtures/' + n, import.meta.url).pathname;
 const shot = n => p.screenshot({ path: process.argv[3] + '/' + n + '.png' });
 await p.waitForTimeout(500); await shot('1-pointage');
 const type = async c => { for (const k of c) await p.getByRole('button', { name: k, exact: true }).click(); };
@@ -47,7 +50,15 @@ await p.getByRole('button', { name: 'Enregistrer' }).click(); await p.waitForTim
 console.log('huile:', await p.locator('.badge').innerText()); await p.waitForTimeout(1700);
 // Réception
 await p.getByRole('button', { name: /Réception/ }).click(); await p.waitForTimeout(150);
-await p.getByRole('button', { name: 'Photo étiquette' }).click(); await p.waitForTimeout(150);
+const [fc1] = await Promise.all([p.waitForEvent('filechooser'), p.getByRole('button', { name: 'Photo étiquette' }).click()]);
+await fc1.setFiles(fx('etiquette.png')); await p.getByRole('status').waitFor({ state: 'detached', timeout: 60000 });
+console.log('OCR étiquette:', await p.locator('input').evaluateAll(xs => xs.filter(x => x.type !== 'file' && x.type !== 'checkbox').slice(0, 4).map(x => x.value).filter(Boolean).join(' | ')), '·', await p.getByRole('alert').innerText());
+const [fc2] = await Promise.all([p.waitForEvent('filechooser'), p.getByRole('button', { name: 'Scanner code-barres' }).click()]);
+await fc2.setFiles(fx('ean.png')); await p.waitForTimeout(800);
+console.log('code-barres:', await p.getByText(/^Code-barres :/).innerText(), '·', await p.getByRole('alert').innerText());
+await p.getByLabel('Produit', { exact: true }).fill('Saucisse volaille hot dog');
+const [fc3] = await Promise.all([p.waitForEvent('filechooser'), p.getByRole('button', { name: /bon de livraison/ }).click()]);
+await fc3.setFiles(fx('etiquette.png')); await p.waitForTimeout(300);
 console.log('accepter bloqué (contrôles à NON):', await p.getByRole('button', { name: 'Accepter' }).isDisabled());
 for (const sw of await p.getByRole('switch').all()) await sw.click();
 await shot('7-reception');

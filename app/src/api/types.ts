@@ -46,7 +46,7 @@ export interface OilInput {
 export interface ReceptionInput {
   supplier: string; product: string; lot: string; dlc: string; temperature: number;
   checks: [boolean, boolean, boolean, boolean]; accepted: boolean; refusalReason: string | null;
-  photo: boolean; autofilled: boolean; barcode: string | null; ownTransport: boolean;
+  photo: boolean; photoData?: string; autofilled: boolean; barcode: string | null; ownTransport: boolean;
 }
 export interface Recipe { id: string; name: string; code: string; shelfDays: number; allergens: string[] }
 export interface Lot { id: string; kind: 'preparation' | 'ouvert'; recipeName: string; lotCode: string; producedOn: Date; useBy: Date; by: string;
@@ -87,7 +87,7 @@ export interface Api {
   huile(token: string, input: OilInput): Promise<{ mustChange: boolean }>;
   reception(token: string, input: ReceptionInput): Promise<void>;
   scanBarcode(token: string, code: string): Promise<{ product: string; supplier: string } | null>;
-  readLabelPhoto(token: string): Promise<{ supplier: string; product: string; lot: string; dlc: string }>;
+  suppliers(): Promise<string[]>;
   recipes(): Promise<Recipe[]>;
   lots(now: Date): Promise<Lot[]>;
   preparation(token: string, recipeId: string): Promise<Lot>;

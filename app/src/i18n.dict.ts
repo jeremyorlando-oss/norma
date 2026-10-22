@@ -192,6 +192,12 @@ const ROWS: [string, string, string][] = [
   ['Accepter', 'Aceptar', 'Accept'], ['Refuser', 'Rechazar', 'Refuse'],
   ['Réception acceptée', 'Recepción aceptada', 'Delivery accepted'], ['Réception refusée · non-conformité ouverte', 'Recepción rechazada · no conformidad abierta', 'Delivery refused · non-conformity opened'],
   ['Nouveau produit : saisissez son nom et son fournisseur une seule fois.', 'Producto nuevo: introduzca su nombre y su proveedor una sola vez.', 'New product: enter its name and supplier once.'],
+  ['Lecture de l’étiquette…', 'Leyendo la etiqueta…', 'Reading the label…'], ['Lecture du code-barres…', 'Leyendo el código de barras…', 'Reading the barcode…'],
+  ['Étiquette illisible : saisissez à la main ou reprenez la photo de plus près.', 'Etiqueta ilegible: introduzca los datos a mano o repita la foto más de cerca.', 'Label unreadable: type it in or retake the photo closer.'],
+  ['Lecture impossible (connexion internet nécessaire la première fois).', 'Lectura imposible (se necesita internet la primera vez).', 'Cannot read (internet needed the first time).'],
+  ['Code-barres illisible : reprenez la photo bien à plat, de plus près.', 'Código ilegible: repita la foto de frente y más de cerca.', 'Barcode unreadable: retake the photo straight on and closer.'],
+  ['Code-barres', 'Código de barras', 'Barcode'], ['Bon de livraison', 'Albarán', 'Delivery note'],
+  ['✓ Photo prise · toucher pour reprendre', '✓ Foto tomada · tocar para repetir', '✓ Photo taken · tap to retake'], ['Toucher pour photographier', 'Tocar para fotografiar', 'Tap to take a photo'],
   ['ex. Mayonnaise 5 kg', 'ej. Mayonesa 5 kg', 'e.g. Mayonnaise 5 kg'],
   // — Préparations
   ['+ Nouvelle préparation', '+ Nueva preparación', '+ New preparation'], ['Nouvelle préparation', 'Nueva preparación', 'New preparation'],

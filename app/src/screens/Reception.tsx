@@ -1,5 +1,6 @@
 import { useT } from '../i18n';
-import { useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
+import { compressPhoto, readBarcode, readLabel } from '../scan/camera';
 import type { Api, Session } from '../api/types';
 import { Field, inputStyle, TopBar, YesNo } from '../components/Controls';
 import { Wheel } from '../components/Wheel';
@@ -16,7 +17,9 @@ export function Reception({ api, session, onBack }: { api: Api; session: Session
   const [barcode, setBarcode] = useState<string | null>(null);
   const [t, setT] = useState(30);                             // dixièmes de °C
   const [checks, setChecks] = useState([false, false, false, false]);
-  const [photo, setPhoto] = useState(false);
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [busy, setBusy] = useState('');
+  const labelIn = useRef<HTMLInputElement>(null), codeIn = useRef<HTMLInputElement>(null), slipIn = useRef<HTMLInputElement>(null);
   const [own, setOwn] = useState(false);
   const [refusing, setRefusing] = useState(false);
   const [error, setError] = useState('');
@@ -24,23 +27,33 @@ export function Reception({ api, session, onBack }: { api: Api; session: Session
 
   const st = readingStatus(t / 10, null, 4);       // réception produits frais : ≤ 4 °C (règle interne)
   const filled = f.supplier && f.product && f.lot && f.dlc;
-  const set = (k: keyof typeof f, v: string) => { setF({ ...f, [k]: v }); setBlue(blue.filter((x) => x !== k)); };
+  const set = (k: keyof typeof f, v: string) => { setF({ ...f, [k]: v }); setBlue(blue.filter((x) => x !== k)); setError(''); };
 
-  const photoLabel = async () => {
-    const r = await api.readLabelPhoto(session.token);
-    setF(r); setBlue(['supplier', 'product', 'lot', 'dlc']);
+  const photoLabel = async (file: File) => {
+    setError(''); setBusy(tr('Lecture de l’étiquette…'));
+    try {
+      const r = await readLabel(file, await api.suppliers());
+      const got = (['supplier', 'lot', 'dlc'] as const).filter((k) => r[k]);
+      if (!got.length) { setError(tr('Étiquette illisible : saisissez à la main ou reprenez la photo de plus près.')); return; }
+      setF({ ...f, ...Object.fromEntries(got.map((k) => [k, r[k]!])) }); setBlue([...new Set([...blue, ...got])]);
+    } catch { setError(tr('Lecture impossible (connexion internet nécessaire la première fois).')); }
+    finally { setBusy(''); }
   };
-  const scan = async () => {
-    const code = '7610000000001';                       // démo : code-barres simulé
+  const scan = async (file: File) => {
+    setError(''); setBusy(tr('Lecture du code-barres…'));
+    const code = await readBarcode(file); setBusy('');
+    if (!code) { setError(tr('Code-barres illisible : reprenez la photo bien à plat, de plus près.')); return; }
     setBarcode(code);
     const r = await api.scanBarcode(session.token, code);
     if (r) { setF({ ...f, supplier: r.supplier, product: r.product }); setBlue([...new Set([...blue, 'supplier', 'product'])]); }
     else setError(tr('Nouveau produit : saisissez son nom et son fournisseur une seule fois.'));
   };
+  const pick = (ref: RefObject<HTMLInputElement>, fn: (f: File) => void) => (
+    <input ref={ref} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const x = e.target.files?.[0]; e.target.value = ''; if (x) fn(x); }} />);
   const submit = async (accepted: boolean, reason: string | null) => {
     try {
       await api.reception(session.token, { ...f, temperature: t / 10, checks: checks as [boolean, boolean, boolean, boolean], accepted,
-        refusalReason: reason, photo, autofilled: blue.length > 0, barcode, ownTransport: own });
+        refusalReason: reason, photo: !!photo, photoData: photo ?? undefined, autofilled: blue.length > 0, barcode, ownTransport: own });
       setDone(tr(accepted ? 'Réception acceptée' : 'Réception refusée · non-conformité ouverte')); setTimeout(onBack, 1400);
     } catch (e) { setError(tr((e as Error).message)); }
   };
@@ -52,9 +65,12 @@ export function Reception({ api, session, onBack }: { api: Api; session: Session
     <div className="screen">
       <TopBar title={tr('Réception')} onBack={onBack} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <button className="btn btn-primary" style={{ height: 44, fontSize: 15 }} onClick={photoLabel}>{tr('Photo étiquette')}</button>
-        <button className="btn" style={{ height: 44, fontSize: 15, background: '#fff', color: 'var(--blue)' }} onClick={scan}>{tr('Scanner code-barres')}</button>
+        <button className="btn btn-primary" style={{ height: 44, fontSize: 15 }} disabled={!!busy} onClick={() => labelIn.current?.click()}>{tr('Photo étiquette')}</button>
+        <button className="btn" style={{ height: 44, fontSize: 15, background: '#fff', color: 'var(--blue)' }} disabled={!!busy} onClick={() => codeIn.current?.click()}>{tr('Scanner code-barres')}</button>
       </div>
+      {pick(labelIn, photoLabel)}{pick(codeIn, scan)}{pick(slipIn, async (x) => setPhoto(await compressPhoto(x)))}
+      {busy && <p className="note" role="status">{busy}</p>}
+      {barcode && <p className="note">{tr('Code-barres')} : {barcode}</p>}
       <label className="group row" style={{ fontSize: 16 }}>
         <input type="checkbox" checked={own} onChange={(e) => setOwn(e.target.checked)} style={{ width: 22, height: 22, accentColor: 'var(--blue)' }} />
         <span className="grow"><span>{tr('Achat transporté par nous (Prodega, Aligro…)')}</span><span className="sub">{tr('Glacière / plaques eutectiques · température mesurée à l’arrivée au stand (BPHR 2.5)')}</span></span></label>
@@ -80,8 +96,9 @@ export function Reception({ api, session, onBack }: { api: Api; session: Session
           <div className="row" key={c} style={{ minHeight: 48 }}><span className="grow" style={{ fontSize: 16 }}>{tr(c)}</span>
             <YesNo label={tr(c)} on={checks[i]} onToggle={() => setChecks(checks.map((x, j) => (j === i ? !x : x)))} /></div>))}
       </div>
-      <label className="group row" style={{ fontSize: 16 }}>
-        <input type="checkbox" checked={photo} onChange={(e) => setPhoto(e.target.checked)} style={{ width: 22, height: 22, accentColor: 'var(--blue)' }} /> {tr('Photo du bon de livraison (archivée)')}</label>
+      <button className="group row" style={{ width: '100%', border: 'none', fontSize: 16, textAlign: 'left' }} onClick={() => slipIn.current?.click()}>
+        {photo ? <img src={photo} alt={tr('Bon de livraison')} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6 }} /> : <span style={{ fontSize: 22 }}>📷</span>}
+        <span className="grow">{tr('Photo du bon de livraison (archivée)')}<span className="sub">{photo ? tr('✓ Photo prise · toucher pour reprendre') : tr('Toucher pour photographier')}</span></span></button>
 
       <div className="error" role="alert">{error}</div>
       {refusing ? (
