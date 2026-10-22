@@ -35,6 +35,19 @@ export interface StandAlert {
   who: string;                 // postes autorisés à régulariser
 }
 
+export interface OilInput {
+  equipmentId: string; moment: 'matin' | 'service' | 'soir'; temperature: number | null; polar: number | null;
+  defects: string[]; filtered: boolean; changed: boolean;
+}
+export interface ReceptionInput {
+  supplier: string; product: string; lot: string; dlc: string; temperature: number;
+  checks: [boolean, boolean, boolean, boolean]; accepted: boolean; refusalReason: string | null;
+  photo: boolean; autofilled: boolean; barcode: string | null;
+}
+export interface Recipe { id: string; name: string; code: string; shelfDays: number; allergens: string[] }
+export interface Lot { id: string; recipeName: string; lotCode: string; producedOn: Date; useBy: Date; by: string;
+  status: 'a_garder' | 'aujourd_hui' | 'a_jeter' | 'jete'; disposed: { by: string; at: Date } | null }
+
 /** Contrat commun : implémenté par la démo (mémoire) et par Supabase (fonctions RPC du serveur). */
 export interface Api {
   openSession(pin: string): Promise<Session>;
@@ -46,4 +59,12 @@ export interface Api {
   cleaningTasks(now: Date): Promise<CleaningTask[]>;
   nettoyage(token: string, taskId: string): Promise<void>;
   alerts(now: Date): Promise<StandAlert[]>;
+  huile(token: string, input: OilInput): Promise<{ mustChange: boolean }>;
+  reception(token: string, input: ReceptionInput): Promise<void>;
+  scanBarcode(token: string, code: string): Promise<{ product: string; supplier: string } | null>;
+  readLabelPhoto(token: string): Promise<{ supplier: string; product: string; lot: string; dlc: string }>;
+  recipes(): Promise<Recipe[]>;
+  lots(now: Date): Promise<Lot[]>;
+  preparation(token: string, recipeId: string): Promise<Lot>;
+  jeterLot(token: string, lotId: string): Promise<void>;
 }

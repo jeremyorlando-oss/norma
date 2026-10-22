@@ -1,6 +1,6 @@
 // Démo autonome : mêmes règles que le serveur, données en mémoire (rien n'est enregistré).
-import { dueAlert, readingStatus, type Right } from '../domain/rules';
-import type { Api, CleaningTask, Equipment, Session, StandAlert } from './types';
+import { dueAlert, lotCode, readingStatus, useBy, type Right } from '../domain/rules';
+import type { Api, CleaningTask, Equipment, Lot, Recipe, Session, StandAlert } from './types';
 
 const ALL: Right[] = ['pointage', 'prise_poste', 'nettoyage', 'signaler_nc', 'allergenes_lecture', 'releves', 'reception',
   'preparations', 'jeter_lot', 'traiter_nc', 'cloturer_nc', 'tableau_bord', 'heures_equipe', 'export', 'equipements',
@@ -42,7 +42,28 @@ export function createDemoApi(): Api {
     { id: 'e3', name: 'Saladette', type: 'froid_positif', min: 2, max: 4, defaultValue: 3 },
     { id: 'e4', name: 'Cuisson à cœur', type: 'cuisson', min: 72, max: null, defaultValue: 75 },
     { id: 'e5', name: 'Maintien au chaud', type: 'maintien_chaud', min: 65, max: null, defaultValue: 68 },
+    { id: 'e6', name: 'Friteuse 1', type: 'friteuse', min: null, max: 175, defaultValue: 170 },
   ];
+  const catalog = new Map<string, { product: string; supplier: string }>();
+  const recipes: Recipe[] = [
+    { id: 'r1', name: "Sauce Original's", code: 'ORI', shelfDays: 2, allergens: ['oeufs', 'moutarde', 'poisson'] },
+    { id: 'r2', name: 'Sauce jalapeños', code: 'JAL', shelfDays: 2, allergens: ['oeufs', 'moutarde'] },
+    { id: 'r3', name: 'Guacamole', code: 'GUA', shelfDays: 2, allergens: [] },
+    { id: 'r4', name: 'Coleslaw chou rouge', code: 'COL', shelfDays: 2, allergens: [] },
+    { id: 'r5', name: 'Purée haricots rouges', code: 'HAR', shelfDays: 2, allergens: [] },
+  ];
+  const daysAgo = (n: number) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - n); return d; };
+  const lots: Omit<Lot, 'status'>[] = [
+    ['r4', 3], ['r3', 2], ['r1', 1],
+  ].map(([rid, n], i) => {
+    const r = recipes.find((x) => x.id === rid)!; const p = daysAgo(n as number);
+    return { id: 'l' + i, recipeName: r.name, lotCode: lotCode(r.code, p, 1), producedOn: p, useBy: useBy(p, r.shelfDays), by: 'Esteban', disposed: null };
+  });
+  const lotStatus = (l: Omit<Lot, 'status'>, now: Date): Lot['status'] => {
+    if (l.disposed) return 'jete';
+    const t = new Date(now); t.setHours(0, 0, 0, 0);
+    return t > l.useBy ? 'a_jeter' : t.getTime() === l.useBy.getTime() ? 'aujourd_hui' : 'a_garder';
+  };
   const tasks: (Omit<CleaningTask, 'dueAt'> & { interval: number | null })[] = [
     { id: 't1', name: 'Zone caisse et service', product: 'Désinfectant alimentaire', frequency: 'Toutes les 2 h', interval: 120, lastDone: { by: 'Noah', at: ago(127) } },
     { id: 't2', name: 'Sol', product: 'Détergent + désinfectant', frequency: 'Toutes les 2 h', interval: 120, lastDone: { by: 'Lucía', at: ago(110) } },
@@ -92,6 +113,44 @@ export function createDemoApi(): Api {
       const m = member(token);
       if (!can(m, 'nettoyage')) throw new Error('Ce poste n’a pas le droit de valider un nettoyage');
       tasks.find((t) => t.id === taskId)!.lastDone = { by: m.prenom, at: new Date() };
+    },
+    async huile(token, i) {
+      const m = member(token);
+      if (!can(m, 'releves')) throw new Error('Ce poste n’a pas le droit de contrôler l’huile');
+      if (!aptToday(m.id)) throw new Error('Prise de poste non conforme ou non faite aujourd’hui');
+      return { mustChange: (i.polar !== null && i.polar >= 25) || i.defects.length > 0 };
+    },
+    async reception(token, i) {
+      const m = member(token);
+      if (!can(m, 'reception')) throw new Error('Ce poste n’a pas le droit de réceptionner');
+      if (i.accepted && !i.checks.every(Boolean)) throw new Error('Acceptation impossible : un contrôle est à NON');
+      if (i.accepted && new Date(i.dlc) < daysAgo(0)) throw new Error('Acceptation impossible : DLC dépassée');
+      if (i.barcode && !catalog.has(i.barcode)) catalog.set(i.barcode, { product: i.product, supplier: i.supplier });
+    },
+    async scanBarcode(token, code) { member(token); return catalog.get(code) ?? null; },
+    async readLabelPhoto(token) {
+      member(token);
+      const d = daysAgo(-6);
+      return { supplier: 'Carnadis Sàrl', product: 'Saucisse volaille hot dog', lot: 'L2610-77', dlc: d.toISOString().slice(0, 10) };
+    },
+    async recipes() { return recipes; },
+    async lots(now) { return lots.map((l) => ({ ...l, status: lotStatus(l, now) })); },
+    async preparation(token, recipeId) {
+      const m = member(token);
+      if (!can(m, 'preparations')) throw new Error('Ce poste n’a pas le droit de produire une préparation');
+      if (!aptToday(m.id)) throw new Error('Prise de poste non conforme ou non faite aujourd’hui');
+      const r = recipes.find((x) => x.id === recipeId)!; const p = daysAgo(0);
+      const seq = lots.filter((l) => l.lotCode.startsWith(lotCode(r.code, p, 0).slice(0, -1))).length + 1;
+      const l = { id: crypto.randomUUID(), recipeName: r.name, lotCode: lotCode(r.code, p, seq), producedOn: p, useBy: useBy(p, r.shelfDays), by: m.prenom, disposed: null };
+      lots.push(l);
+      return { ...l, status: lotStatus(l, new Date()) };
+    },
+    async jeterLot(token, lotId) {
+      const m = member(token);
+      if (!can(m, 'jeter_lot')) throw new Error('Ce poste n’a pas le droit de jeter un lot');
+      const l = lots.find((x) => x.id === lotId)!;
+      if (l.disposed) throw new Error('Lot déjà jeté');
+      l.disposed = { by: m.prenom, at: new Date() };
     },
     async alerts(now) {
       const list: StandAlert[] = [];

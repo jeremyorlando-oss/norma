@@ -75,3 +75,4 @@ button:disabled { opacity: .45; cursor: default; }
 .check.soon { border-color: #B38F00; }
 .check.done { background: var(--green); border-color: var(--green); }
 .demo-banner { font-size: 12px; color: var(--text-3); text-align: center; }
+@media print { body * { visibility: hidden; } .print-label, .print-label * { visibility: visible; } .print-label { position: absolute; top: 0; left: 0; border: none !important; } }

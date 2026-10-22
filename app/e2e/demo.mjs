@@ -22,6 +22,31 @@ await p.waitForTimeout(1200); console.log('retour accueil session:', await p.loc
 await p.getByRole('button', { name: /Nettoyage/ }).click(); await p.waitForTimeout(200); await shot('5-nettoyage');
 await p.getByRole('button', { name: 'Valider : Sol' }).click(); await p.waitForTimeout(200);
 console.log('fait:', await p.getByText('Fait').count() > 0);
+await p.getByRole('button', { name: '‹ Retour' }).click(); await p.waitForTimeout(150);
+// Huile
+await p.getByRole('button', { name: /^Huile/ }).click(); await p.waitForTimeout(150);
+await p.getByRole('radio', { name: 'Matin' }).click();
+await p.getByRole('button', { name: 'Fumée' }).click(); await shot('6-huile');
+await p.getByRole('button', { name: 'Enregistrer' }).click(); await p.waitForTimeout(200);
+console.log('huile:', await p.locator('.badge').innerText()); await p.waitForTimeout(1700);
+// Réception
+await p.getByRole('button', { name: /Réception/ }).click(); await p.waitForTimeout(150);
+await p.getByRole('button', { name: 'Photo étiquette' }).click(); await p.waitForTimeout(150);
+console.log('accepter bloqué (contrôles à NON):', await p.getByRole('button', { name: 'Accepter' }).isDisabled());
+for (const sw of await p.getByRole('switch').all()) await sw.click();
+await shot('7-reception');
+console.log('accepter actif après 4 OUI:', await p.getByRole('button', { name: 'Accepter' }).isEnabled());
+await p.getByRole('button', { name: 'Accepter' }).click(); await p.waitForTimeout(200);
+console.log('réception:', await p.locator('.badge').innerText()); await p.waitForTimeout(1500);
+// Préparations
+await p.getByRole('button', { name: /Préparations/ }).click(); await p.waitForTimeout(150);
+await shot('8-preparations');
+await p.getByRole('button', { name: 'Jeter' }).first().click(); await p.getByRole('button', { name: 'Confirmer ?' }).click(); await p.waitForTimeout(150);
+console.log('lot jeté:', await p.getByText(/jeté par Esteban/).count() === 1);
+await p.getByRole('button', { name: '+ Nouvelle préparation' }).click();
+await p.getByRole('button', { name: /Sauce jalapeños/ }).click(); await p.waitForTimeout(150);
+console.log('étiquette:', (await p.locator('.print-label b').nth(1).innerText()));
+await shot('9-etiquette');
 await p.getByRole('button', { name: 'Fermer la session' }).click(); await p.waitForTimeout(200);
 await type('5913'); await p.waitForTimeout(300);
 for (const g of await p.getByRole('radiogroup').all()) await g.getByRole('radio', { name: 'Oui' }).click();

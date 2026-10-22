@@ -28,7 +28,8 @@
 | Relevé à molettes (équipement + température), écran hors seuil avec action corrective obligatoire | ✅ | ✅ | |
 | Nettoyage : tâches, retards, validation | ✅ | ✅ | |
 | Branchement de l'interface sur Supabase + mode hors ligne (file d'attente) | ⏳ | — | La démo fonctionne avec des données fictives en mémoire |
-| Écrans huile, réception, préparations, allergènes, NC, Direction iPhone | ⏳ | — | |
+| Écrans Huile (matin/service/soir), Réception (photo, code-barres, contrôles NON par défaut, refus motivé), Préparations (lots, jeter en 2 temps, étiquette imprimable) | ✅ | ✅ | Démo : lecture photo et scan simulés |
+| Écrans allergènes, NC, Direction iPhone | ⏳ | — | |
 | Rapport journalier PDF + envoi Gérant/Manager | ⏳ | — | |
 
 Tests : 74 vérifications automatiques, toutes réussies (22.10.2026), sur base PostgreSQL de test locale.

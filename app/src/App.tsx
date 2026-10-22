@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Api, Session } from './api/types';
+import { Huile } from './screens/Huile';
 import { Nettoyage } from './screens/Nettoyage';
+import { Preparations } from './screens/Preparations';
+import { Reception } from './screens/Reception';
 import { Pointage } from './screens/Pointage';
 import { PrisePoste } from './screens/PrisePoste';
 import { Releve } from './screens/Releve';
@@ -46,6 +49,9 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
         onDepointer={async () => { await api.depointer(session.token); setSession(null); }} />}
       {view === 'releve' && <Releve api={api} session={session} onBack={back} />}
       {view === 'nettoyage' && <Nettoyage api={api} session={session} onBack={back} />}
+      {view === 'huile' && <Huile api={api} session={session} onBack={back} />}
+      {view === 'reception' && <Reception api={api} session={session} onBack={back} />}
+      {view === 'preparations' && <Preparations api={api} session={session} onBack={back} />}
     </>
   );
 }

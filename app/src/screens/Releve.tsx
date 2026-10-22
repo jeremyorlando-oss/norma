@@ -19,7 +19,7 @@ export function Releve({ api, session, onBack }: { api: Api; session: Session; o
   const [actions, setActions] = useState<string[]>([]);
   const [error, setError] = useState('');
 
-  useEffect(() => { api.equipments().then((e) => { setEqs(e); setT(Math.round(e[0].defaultValue * 10)); }); }, [api]);
+  useEffect(() => { api.equipments().then((all) => { const e = all.filter((x) => x.type !== 'friteuse'); setEqs(e); setT(Math.round(e[0].defaultValue * 10)); }); }, [api]);
   const eq = eqs[eqIdx];
   const status = useMemo(() => (eq ? readingStatus(t / 10, eq.min, eq.max) : 'vert'), [eq, t]);
   if (!eq) return null;
