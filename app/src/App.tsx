@@ -64,7 +64,8 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
       {view === 'chaud' && <MaintienChaud api={api} session={session} onBack={back} />}
       {depannage && <div style={{ background: 'var(--yellow)', textAlign: 'center', fontSize: 13, fontWeight: 600, padding: 6 }}>Saisie de dépannage depuis l’iPhone · {session.prenom}</div>}
       {view === 'home' && <SessionHome api={api} session={session} onOpen={setView}
-        onDepointer={async () => { await api.depointer(session.token); setSession(null); }} />}
+        onDepointer={async () => { await api.depointer(session.token); setSession(null); }}
+        onBreak={async (on) => { await (on ? api.startBreak(session.token) : api.endBreak(session.token)); setSession({ ...session, onBreak: on }); }} />}
       {view === 'releve' && <Releve api={api} session={session} onBack={back} />}
       {view === 'nettoyage' && <Nettoyage api={api} session={session} onBack={back} />}
       {view === 'huile' && <Huile api={api} session={session} onBack={back} />}

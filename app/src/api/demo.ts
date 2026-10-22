@@ -1,7 +1,8 @@
 // Démo autonome : mêmes règles que le serveur, données en mémoire (rien n'est enregistré).
 import { dueAlert, isWeakPin, lotCode, readingStatus, useBy, type Right } from '../domain/rules';
 import type { DayReport } from '../report/dailyReport';
-import type { EventInfo, EventSummary, AdminDoc, Api, CleaningTask, Dish, Equipment, HotBatch, Lot, Nc, Recipe, Session, StandAlert } from './types';
+import { checkEntry, FORGOT_AFTER_H, workedMinutes } from '../domain/hours';
+import type { TimeEntry, EventInfo, EventSummary, AdminDoc, Api, CleaningTask, Dish, Equipment, HotBatch, Lot, Nc, Recipe, Session, StandAlert } from './types';
 
 const ALL: Right[] = ['pointage', 'prise_poste', 'nettoyage', 'signaler_nc', 'allergenes_lecture', 'releves', 'reception',
   'preparations', 'jeter_lot', 'traiter_nc', 'cloturer_nc', 'tableau_bord', 'heures_equipe', 'export', 'equipements',
@@ -30,7 +31,10 @@ const ago = (min: number) => new Date(Date.now() - min * 60_000);
 const today = () => new Date().toDateString();
 
 export function createDemoApi(): Api {
-  const clockedIn = new Map<string, Date>();
+  const entries: TimeEntry[] = [];
+  const active = (id: string) => entries.find((e) => e.memberId === id && !e.end);
+  const clockedIn = { has: (id: string) => !!active(id), get: (id: string) => active(id)?.start,
+    values: () => entries.filter((e) => !e.end).map((e) => e.start), get size() { return entries.filter((e) => !e.end).length; } };
   const ncs: Nc[] = [];
   const stats = { releves: 0, relevesRouges: 0, nettoyagesFaits: 0, receptions: 0 };
   const hm = (d = new Date()) => d.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' });
@@ -70,6 +74,15 @@ export function createDemoApi(): Api {
   const current = (now: Date) => events.find((e) => dayStart(now) >= e.start && dayStart(now) <= e.end) ?? null;
   const dayOf = (e: EventInfo, now: Date) => Math.round((dayStart(now).getTime() - e.start.getTime()) / 86_400_000) + 1;
   const length = (e: EventInfo) => Math.round((e.end.getTime() - e.start.getTime()) / 86_400_000) + 1;
+  // Exemples d'heures : marché passé (3 jours) et un oubli de dépointage d'hier soir
+  const at = (day: Date, h: number, m = 0) => { const x = new Date(day); x.setHours(h, m, 0, 0); return x; };
+  for (let k = 0; k < 3; k++) for (const [id, prenom, poste, s0, e0] of [['m1', 'Orlando', 'Gérant', 9, 19], ['m3', 'Esteban', 'Chef de cuisine', 10, 20], ['m4', 'Lucía', 'Aide de cuisine', 11, 18]] as const) {
+    const day = addDays(events[1].start, k);
+    entries.push({ id: crypto.randomUUID(), memberId: id, prenom, poste, eventId: 'ev0', start: at(day, s0), end: at(day, e0),
+      breaks: [{ start: at(day, 15), end: at(day, 15, 45) }], corrections: [] });
+  }
+  entries.push({ id: crypto.randomUUID(), memberId: 'm2', prenom: 'Vincent', poste: 'Manager', eventId: 'ev1', start: at(addDays(new Date(), -1), 8, 30), end: null,
+    breaks: [{ start: at(addDays(new Date(), -1), 14), end: at(addDays(new Date(), -1), 14, 40) }], corrections: [] });
   const hot: HotBatch[] = [];
   let lastReview: Date | null = null;
   const recipes: Recipe[] = [
@@ -138,14 +151,48 @@ export function createDemoApi(): Api {
       if (!m) { fails.push(Date.now()); throw new Error('Code incorrect'); }
       fails = [];
       const arrivee = !clockedIn.has(m.id);
-      if (arrivee) clockedIn.set(m.id, new Date());
+      if (arrivee) entries.push({ id: crypto.randomUUID(), memberId: m.id, prenom: m.prenom, poste: m.poste, eventId: current(new Date())?.id ?? null,
+        start: new Date(), end: null, breaks: [], corrections: [] });
       const token = crypto.randomUUID();
       sessions.set(token, { memberId: m.id, last: Date.now() });
-      const s: Session = { token, memberId: m.id, langue: m.lang, prenom: m.prenom, poste: m.poste, arrivee, droits: rightsOf(m), aptToday: aptToday(m.id), privacyAck: privacy.has(m.id), trained: trained.has(m.id) };
+      const s: Session = { token, memberId: m.id, langue: m.lang, prenom: m.prenom, poste: m.poste, arrivee, droits: rightsOf(m), aptToday: aptToday(m.id), privacyAck: privacy.has(m.id), onBreak: !!active(m.id)?.breaks.some((b) => !b.end), trained: trained.has(m.id) };
       return s;
     },
     async closeSession(token) { sessions.delete(token); },
-    async depointer(token) { const m = member(token); clockedIn.delete(m.id); sessions.delete(token); },
+    async depointer(token) {
+      const m = member(token); const e = active(m.id); const now = new Date();
+      if (e) { e.breaks.forEach((b) => { if (!b.end) b.end = now; }); e.end = now; }
+      sessions.delete(token);
+    },
+    async startBreak(token) {
+      const e = active(member(token).id);
+      if (!e) throw new Error('Pas pointé'); if (e.breaks.some((b) => !b.end)) throw new Error('Déjà en pause');
+      e.breaks.push({ start: new Date(), end: null });
+    },
+    async endBreak(token) { const b = active(member(token).id)?.breaks.find((x) => !x.end); if (b) b.end = new Date(); },
+    async timeEntries(from, to) {
+      return entries.filter((e) => e.start < to && (e.end ?? new Date()) >= from).sort((a, b) => b.start.getTime() - a.start.getTime())
+        .map((e) => ({ ...e, breaks: e.breaks.map((b) => ({ ...b })), corrections: [...e.corrections] }));
+    },
+    async correctEntry(token, id, v, reason) {
+      const m = member(token);
+      if (!can(m, 'heures_equipe')) throw new Error('Correction des heures non autorisée');
+      if (reason.trim().length < 3) throw new Error('Indiquez le motif de la correction');
+      const err = checkEntry(v); if (err) throw new Error(err);
+      const e = entries.find((x) => x.id === id)!;
+      const f = (d: Date | null) => (d ? d.toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'en service');
+      const what: string[] = [];
+      if (e.start.getTime() !== v.start.getTime()) what.push(`arrivée ${f(e.start)} → ${f(v.start)}`);
+      if ((e.end?.getTime() ?? 0) !== (v.end?.getTime() ?? 0)) what.push(`départ ${f(e.end)} → ${f(v.end)}`);
+      if (JSON.stringify(e.breaks) !== JSON.stringify(v.breaks)) what.push(`pauses ${e.breaks.length} → ${v.breaks.length}`);
+      if (!what.length) return;
+      e.corrections.push({ at: new Date(), by: m.prenom, what: what.join(' ; '), reason: reason.trim() });
+      Object.assign(e, { start: v.start, end: v.end, breaks: v.breaks });
+    },
+    async hoursAlerts(now) {
+      return entries.filter((e) => !e.end && now.getTime() - e.start.getTime() > FORGOT_AFTER_H * 3_600_000)
+        .map((e) => ({ entryId: e.id, prenom: e.prenom, since: e.start, hours: Math.floor((now.getTime() - e.start.getTime()) / 3_600_000) }));
+    },
     async prisePoste(token, a) { const m = member(token); fit.set(m.id, { day: today(), ok: a.apte && a.tenue && a.bijoux && a.mains }); },
     async equipments() { return equipments; },
     async releve(token, equipmentId, value) {
@@ -242,7 +289,7 @@ export function createDemoApi(): Api {
       if (!['Gérant', 'Manager'].includes(m.poste)) throw new Error('Espace Direction réservé au Gérant et au Manager');
       const token = crypto.randomUUID();
       sessions.set(token, { memberId: m.id, last: Date.now(), iphone: true });   // pas d'expiration courte sur l'iPhone (Face ID)
-      return { token, memberId: m.id, langue: 'fr', prenom: m.prenom, poste: m.poste, arrivee: false, droits: rightsOf(m), aptToday: aptToday(m.id), privacyAck: true, trained: true };
+      return { token, memberId: m.id, langue: 'fr', prenom: m.prenom, poste: m.poste, arrivee: false, droits: rightsOf(m), aptToday: aptToday(m.id), privacyAck: true, onBreak: false, trained: true };
     },
     async nonconformities() { return ncs.map((n) => ({ ...n, steps: [...n.steps] })); },
     async ncStep(token, ncId, step, content) {
@@ -290,8 +337,9 @@ export function createDemoApi(): Api {
           { label: 'Huile', value: '≤ 175 °C / < 25 %', source: 'Règle interne (BPHR 2.4.4 : 175 °C, 27 %)' },
           { label: 'Préparations maison', value: 'J+2, ≤ 4 °C', source: 'BPHR 6.3.1 (production + 2 jours)' },
         ],
-        attendance: DEMO_MEMBERS.filter((m) => clockedIn.has(m.id)).map((m) => ({ name: m.prenom, poste: m.poste, arrival: hm(clockedIn.get(m.id)!), departure: null,
-          apte: fit.get(m.id)?.day === today() ? fit.get(m.id)!.ok : null })),
+        attendance: entries.filter((e) => e.start.toDateString() === now.toDateString() || !e.end).map((e) => ({ name: e.prenom, poste: e.poste, arrival: hm(e.start),
+          departure: e.end ? hm(e.end) : null, pauses: e.breaks.map((b) => `${hm(b.start)}–${b.end ? hm(b.end) : '…'}`).join(', '),
+          apte: fit.get(e.memberId)?.day === today() ? fit.get(e.memberId)!.ok : null })),
         readings: log.readings, oil: log.oil, receptions: log.receptions, cleaning: log.cleaning,
         cleaningMissed: tasks.filter((t) => { const d = due(t); return d && d < now; }).map((t) => ({ item: t.name, due: hm(due(t)!) })),
         lots: lots.map((l) => ({ lot: l.lotCode, recipe: l.recipeName, by: l.by, useBy: l.useBy.toLocaleDateString('fr-CH'), disposed: lotDisposedAt.get(l.id) ?? (l.disposed ? 'Jeté' : '—') })),
@@ -375,10 +423,11 @@ export function createDemoApi(): Api {
       if (pastSummary[id]) return pastSummary[id];
       const e = events.find((x) => x.id === id)!;
       if (current(now)?.id !== id) return { jours: length(e), releves: 0, relevesRouges: 0, ncOuvertes: 0, ncCloturees: 0, nettoyages: 0, receptions: 0, lotsProduits: 0, lotsJetes: 0, heures: 0, personnes: 0, checklistsMontage: false };
-      const h = [...clockedIn.values()].reduce((s, d) => s + (now.getTime() - d.getTime()) / 3_600_000, 0);
+      const evE = entries.filter((x) => x.eventId === id);
+      const h = evE.reduce((s, x) => s + workedMinutes(x, now) / 60, 0);
       return { jours: length(e), releves: stats.releves, relevesRouges: stats.relevesRouges, ncOuvertes: ncs.filter((n) => !n.closed).length, ncCloturees: ncs.filter((n) => n.closed).length,
         nettoyages: stats.nettoyagesFaits, receptions: stats.receptions, lotsProduits: lots.length, lotsJetes: lots.filter((l) => l.disposed).length,
-        heures: Math.round(h * 10) / 10, personnes: clockedIn.size, checklistsMontage: checklists.get('montage') === id };
+        heures: Math.round(h * 10) / 10, personnes: new Set(evE.map((x) => x.memberId)).size, checklistsMontage: checklists.get('montage') === id };
     },
     async checklistDone(mode) { return checklists.get(mode) === (mode === 'montage' ? current(new Date())?.id ?? today() : today()); },
     async saveChecklist(token, mode, answers, labels) {

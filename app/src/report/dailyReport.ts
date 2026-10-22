@@ -8,7 +8,7 @@ export interface DayReport {
   date: Date;
   generatedAt: Date;
   thresholds: { label: string; value: string; source: string }[];
-  attendance: { name: string; poste: string; arrival: string; departure: string | null; apte: boolean | null }[];
+  attendance: { name: string; poste: string; arrival: string; departure: string | null; pauses?: string; apte: boolean | null }[];
   readings: { time: string; equipment: string; value: string; status: 'vert' | 'jaune' | 'rouge'; by: string; source: string }[];
   oil: { time: string; fryer: string; moment: string; temp: string; polar: string; aspect: string; actions: string; by: string }[];
   receptions: { time: string; supplier: string; product: string; lot: string; dlc: string; temp: string; result: string; by: string; photo: boolean }[];
@@ -126,9 +126,9 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
 
       // ---------- Détail
       sectionBand(1, 'Présence et prise de poste', notApte ? `${notApte} non apte / non faite` : 'Tous aptes', !!notApte),
-      table(['Personne', 'Poste', 'Arrivée', 'Départ', 'Prise de poste'], d.attendance.map((a) =>
-        [{ text: a.name, bold: true }, a.poste, a.arrival, a.departure ?? 'en service', a.apte === null ? badge('bad', 'Non faite') : a.apte ? badge('ok', 'Apte') : badge('bad', 'Non apte')]),
-        ['*', '*', 50, 60, 80], 'Aucun pointage.', d.attendance.map((a) => a.apte !== true)),
+      table(['Personne', 'Poste', 'Arrivée', 'Départ', 'Pauses', 'Prise de poste'], d.attendance.map((a) =>
+        [{ text: a.name, bold: true }, a.poste, a.arrival, a.departure ?? 'en service', a.pauses || '—', a.apte === null ? badge('bad', 'Non faite') : a.apte ? badge('ok', 'Apte') : badge('bad', 'Non apte')]),
+        ['*', 70, 42, 50, '*', 72], 'Aucun pointage.', d.attendance.map((a) => a.apte !== true)),
 
       sectionBand(2, 'Températures', `${plural(d.readings.length, 'relevé')}${rRed ? ' · ' + plural(rRed, 'écart') : ''}`, !!rRed),
       table(['Heure', 'Équipement', 'Valeur', 'Résultat', 'Par'], d.readings.map((r) =>

@@ -10,7 +10,8 @@ export interface Session {
   arrivee: boolean;      // true = arrivée pointée par ce code
   droits: Right[];
   aptToday: boolean;     // prise de poste conforme faite aujourd'hui
-  privacyAck: boolean;  // notice LPD lue (version en cours)
+  privacyAck: boolean;
+  onBreak: boolean;     // pause en cours (OLT 1 art. 73 al. 1 let. e)  // notice LPD lue (version en cours)
   trained: boolean;      // formation / briefing validé (quiz réussi)
 }
 
@@ -74,6 +75,11 @@ export interface OfficialLimit { min: number | null; max: number | null; source:
 export type EquipmentInput = Omit<Equipment, 'id' | 'defaultValue'> & { id?: string };
 export interface CleaningTaskInput { id?: string; name: string; product: string; frequency: string; interval: number | null }
 
+/** Pointage : une ligne par service ; les corrections gardent l'ancienne valeur, qui, quand et pourquoi. */
+export interface TimeEntry { id: string; memberId: string; prenom: string; poste: string; eventId: string | null; start: Date; end: Date | null;
+  breaks: { start: Date; end: Date | null }[]; corrections: { at: Date; by: string; what: string; reason: string }[] }
+export interface HoursAlert { entryId: string; prenom: string; since: Date; hours: number }
+
 /** Contrat commun : implémenté par la démo (mémoire) et par Supabase (fonctions RPC du serveur). */
 export interface Api {
   openSession(pin: string): Promise<Session>;
@@ -125,6 +131,11 @@ export interface Api {
   extraRights(): Promise<Record<string, Right[]>>;
   setExtraRights(token: string, memberId: string, rights: Right[]): Promise<void>;
   ackPrivacy(token: string): Promise<void>;
+  startBreak(token: string): Promise<void>;
+  endBreak(token: string): Promise<void>;
+  timeEntries(from: Date, to: Date): Promise<TimeEntry[]>;
+  correctEntry(token: string, id: string, v: { start: Date; end: Date | null; breaks: { start: Date; end: Date | null }[] }, reason: string): Promise<void>;
+  hoursAlerts(now: Date): Promise<HoursAlert[]>;
   privacyAcks(): Promise<{ name: string; at: string }[]>;
   // Événements
   events(): Promise<EventInfo[]>;

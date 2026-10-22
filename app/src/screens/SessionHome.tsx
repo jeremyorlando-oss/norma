@@ -16,8 +16,8 @@ const TILES: { right: Right; title: string; target?: Target }[] = [
   { right: 'signaler_nc', title: 'Signaler un problème', target: 'signaler' },
 ];
 
-export function SessionHome({ api, session, onOpen, onDepointer }:
-  { api: Api; session: Session; onOpen: (t: Target) => void; onDepointer: () => void }) {
+export function SessionHome({ api, session, onOpen, onDepointer, onBreak }:
+  { api: Api; session: Session; onOpen: (t: Target) => void; onDepointer: () => void; onBreak: (on: boolean) => Promise<void> }) {
   const tt = useT();
   const [late, setLate] = useState(0);
   const [confirm, setConfirm] = useState(false);
@@ -27,6 +27,14 @@ export function SessionHome({ api, session, onOpen, onDepointer }:
   }, [api]);
 
   const tiles = TILES.filter((t) => session.droits.includes(t.right));
+  if (session.onBreak) return (
+    <div className="screen" style={{ justifyContent: 'center', gap: 16 }}>
+      <div style={{ textAlign: 'center' }}><div className="eyebrow">{session.prenom}</div><h1 className="h1">{tt('En pause')}</h1>
+        <p className="note">{tt('La pause est enregistrée et déduite de vos heures.')}</p></div>
+      <button className="btn btn-primary" onClick={() => onBreak(false)}>{tt('Reprendre le travail')}</button>
+      <button className="btn btn-outline-danger" onClick={onDepointer}>{tt('Terminer mon service · dépointer')}</button>
+    </div>
+  );
   return (
     <div className="screen">
       <div>
@@ -45,7 +53,8 @@ export function SessionHome({ api, session, onOpen, onDepointer }:
           </button>))}
       </div>
       <p className="note" style={{ textAlign: 'center' }}> {tt('Seules les actions autorisées pour votre poste s’affichent. La session se ferme seule après 2 min sans activité ; vous restez pointé.')}</p>
-      <div style={{ marginTop: 'auto' }}>
+      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {!confirm && <button className="btn" style={{ background: '#fff' }} onClick={() => onBreak(true)}>{tt('Commencer une pause')}</button>}
         {confirm
           ? <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <button className="btn" style={{ background: '#fff' }} onClick={() => setConfirm(false)}>{tt('Annuler')}</button>

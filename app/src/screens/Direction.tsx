@@ -3,6 +3,7 @@ import type { AdminDoc, Api, EventInfo, DayStats, Member, Nc, NcStep, Session } 
 import { Segmented } from '../components/Controls';
 import { Evenements } from './Evenements';
 import { Reglages } from './Reglages';
+import { Heures, HoursAlerts } from './Heures';
 
 type Tab = 'jour' | 'nc' | 'equipe' | 'plus';
 const STEP_LABEL: Record<NcStep['step'], string> = { mesure_immediate: 'Mesure immédiate', evaluation_risque: 'Évaluation du risque',
@@ -33,9 +34,11 @@ export function Direction({ api, onDepannage, onLogout }: { api: Api; onDepannag
       <div><div className="eyebrow">{session.poste}</div><h1 className="h1">{tab === 'jour' ? 'Aujourd’hui' : tab === 'nc' ? 'Incidents' : tab === 'equipe' ? 'Équipe' : 'Plus'}</h1></div>
       <Segmented label="Sections" value={tab} onChange={setTab}
         options={[{ value: 'jour', label: 'Jour' }, { value: 'nc', label: 'Incidents' }, { value: 'equipe', label: 'Équipe' }, { value: 'plus', label: 'Plus' }]} />
+      {tab === 'jour' && <HoursAlerts api={api} onOpen={() => setTab('equipe')} />}
       {tab === 'jour' && <Jour api={api} onEvents={() => setTab('plus')} />}
       {tab === 'nc' && <Incidents api={api} session={session} />}
       {tab === 'equipe' && <Equipe api={api} session={session} />}
+      {tab === 'equipe' && session.droits.includes('heures_equipe') && <Heures api={api} session={session} />}
       {tab === 'plus' && reglages && <Reglages api={api} session={session} onBack={() => setReglages(false)} />}
       {tab === 'plus' && !reglages && <Evenements api={api} session={session} />}
       {tab === 'plus' && !reglages && (
