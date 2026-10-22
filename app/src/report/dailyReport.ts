@@ -18,7 +18,8 @@ export interface DayReport {
   ncs: { opened: string; kind: string; description: string; by: string; steps: string[]; status: string }[];
 }
 
-const C = { green: '#1E7A34', greenBg: '#E3F2E7', red: '#C40012', redBg: '#FCE4E7', yellowBg: '#FFF1B8', band: '#1F2933', grey: '#555555', zebra: '#F6F7F9' };
+const C = { green: '#1E7A34', greenBg: '#E3F2E7', red: '#9B1C2C', redSoft: '#F3CDD2', redBg: '#FBEBED', yellowBg: '#FFF1B8', grey: '#555555', zebra: '#F6F7F9',
+  bandOk: '#D3EBDA', bandOkText: '#14532D', bandWarn: '#FFE58F', bandBad: '#F3CDD2', bandBadText: '#7A1020' };
 type Row = (string | Content)[];
 
 /** Code de vérification : empreinte SHA-256 des données, imprimée sur chaque page. */
@@ -31,8 +32,8 @@ export async function verificationCode(data: DayReport): Promise<string> {
 
 /** Pastille de résultat : texte + fond coloré (lisible aussi en noir et blanc grâce au mot). */
 const badge = (kind: 'ok' | 'warn' | 'bad', text: string): Content => ({
-  text: ` ${text} `, bold: kind !== 'ok', color: kind === 'bad' ? '#FFFFFF' : kind === 'warn' ? '#000000' : C.green,
-  fillColor: kind === 'bad' ? C.red : kind === 'warn' ? C.yellowBg : C.greenBg,
+  text: ` ${text} `, bold: kind !== 'ok', color: kind === 'bad' ? C.bandBadText : kind === 'warn' ? '#000000' : C.green,
+  fillColor: kind === 'bad' ? C.redSoft : kind === 'warn' ? C.yellowBg : C.greenBg,
 });
 
 /** Bandeau de section : titre + résumé chiffré à droite (ex. « 6 relevés · 1 écart »). */
@@ -40,9 +41,9 @@ const sectionBand = (n: number, title: string, summary: string, bad: boolean | '
   // @ts-expect-error pdfmake accepte « id » sur tout nœud (utilisé par pageBreakBefore)
   id: `band-${n}`,
   table: { widths: ['*', 'auto'], body: [[
-    { text: `${n}. ${title}`, bold: true, fontSize: 12, color: bad === 'warn' ? '#000000' : '#FFFFFF', margin: [6, 4, 0, 4] },
-    { text: summary, fontSize: 10, bold: !!bad, color: bad === 'warn' ? '#000000' : '#FFFFFF', alignment: 'right', margin: [0, 5, 6, 4] }]] },
-  layout: { hLineWidth: () => 0, vLineWidth: () => 0, fillColor: () => (bad === 'warn' ? '#FFD60A' : bad ? C.red : C.band) },
+    { text: `${n}. ${title}`, bold: true, fontSize: 12, color: bad === 'warn' ? '#000000' : bad ? C.bandBadText : C.bandOkText, margin: [6, 4, 0, 4] },
+    { text: summary, fontSize: 10, bold: !!bad, color: bad === 'warn' ? '#000000' : bad ? C.bandBadText : C.bandOkText, alignment: 'right', margin: [0, 5, 6, 4] }]] },
+  layout: { hLineWidth: () => 0, vLineWidth: () => 0, fillColor: () => (bad === 'warn' ? C.bandWarn : bad ? C.bandBad : C.bandOk) },
   margin: [0, 16, 0, 6],
 });
 
@@ -74,6 +75,9 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
   const ncOpen = d.ncs.filter((n) => n.status !== 'Clôturée').length;
   const lotsOut = d.lots.filter((l) => l.disposed !== '—').length;
   const ecarts = rRed + oilBad + recBad + d.cleaningMissed.length + notApte;
+  // Score interne (indicatif) : part des contrôles conformes, moins 10 points par non-conformité restée ouverte
+  const totalControls = d.readings.length + d.oil.length + d.receptions.length + d.cleaning.length + d.cleaningMissed.length + d.attendance.length;
+  const score = Math.max(0, Math.round(totalControls ? (100 * (totalControls - ecarts)) / totalControls : 100) - 10 * ncOpen);
 
   const synth: [string, string, 'ok' | 'warn' | 'bad', string][] = [
     ['Présence et prise de poste', plural(d.attendance.length, 'personne'), notApte ? 'bad' : 'ok', notApte ? `${notApte} non apte / non faite` : 'Tous aptes'],
@@ -84,7 +88,7 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
     ['Préparations et lots', plural(d.lots.length, 'lot'), 'ok', lotsOut ? `${lotsOut} éliminé${lotsOut > 1 ? 's' : ''}` : 'Conforme'],
     ['Non-conformités', plural(d.ncs.length, 'incident'), ncOpen ? 'bad' : 'ok', ncOpen ? plural(ncOpen, 'ouverte') : d.ncs.length ? 'Toutes clôturées' : 'Aucune'],
   ];
-  const verdict = ncOpen ? { t: `${plural(ncOpen, 'non-conformité')} encore ouverte${ncOpen > 1 ? 's' : ''}`, c: C.red, bg: C.redBg }
+  const verdict = ncOpen ? { t: `${plural(ncOpen, 'non-conformité')} encore ouverte${ncOpen > 1 ? 's' : ''}`, c: C.bandBadText, bg: C.redBg }
     : ecarts ? { t: `Journée maîtrisée : ${plural(ecarts, 'écart')} détecté${ecarts > 1 ? 's' : ''} et traité${ecarts > 1 ? 's' : ''}`, c: '#000000', bg: C.yellowBg }
     : { t: 'Journée conforme : aucun écart', c: C.green, bg: C.greenBg };
 
@@ -94,7 +98,7 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
     pageSize: 'A4',
     pageMargins: [40, 56, 40, 50],
     // Un bandeau de section ne reste jamais seul en bas de page
-    pageBreakBefore: (node, following) => typeof node.id === 'string' && node.id.startsWith('band-') && following.length < 2,
+    pageBreakBefore: (node) => typeof node.id === 'string' && node.id.startsWith('band-') && node.startPosition.top > 841.89 - 50 - 150,
     info: { title: `Rapport HACCP ${d.date.toISOString().slice(0, 10)}`, author: d.company.name },
     header: (page) => (page === 1 ? null : { text: `${d.company.name}  ·  Rapport HACCP du ${d.date.toLocaleDateString('fr-CH')}  ·  ${d.event}`, fontSize: 8, color: C.grey, margin: [40, 26, 40, 0] }),
     footer: (page, pages) => ({
@@ -110,7 +114,10 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
           { text: `Responsable HACCP : ${d.company.responsable}`, fontSize: 9, alignment: 'right', color: C.grey },
           { text: `${d.company.address} · ${d.company.phone}`, fontSize: 9, alignment: 'right', color: C.grey }] },
       ] },
-      { table: { widths: ['*'], body: [[{ text: verdict.t, fontSize: 14, bold: true, color: verdict.c, margin: [10, 9, 10, 9] }]] },
+      { table: { widths: ['*', 'auto'], body: [[
+        { text: verdict.t, fontSize: 14, bold: true, color: verdict.c, margin: [10, 12, 10, 9] },
+        { stack: [{ text: [{ text: String(score), fontSize: 24, bold: true }, { text: ' / 100', fontSize: 11 }], color: verdict.c, alignment: 'right' },
+          { text: 'score du jour', fontSize: 8, color: C.grey, alignment: 'right' }], margin: [10, 5, 10, 5] }]] },
         layout: { hLineWidth: () => 0, vLineWidth: () => 0, fillColor: () => verdict.bg }, margin: [0, 16, 0, 10] },
       { text: 'SYNTHÈSE DU JOUR', fontSize: 9, bold: true, color: C.grey, characterSpacing: 1, margin: [0, 0, 0, 4] },
       table(['Contrôle', 'Volume', 'Résultat'], synth.map(([a, b, k, t]) => [{ text: a, bold: true }, b, badge(k, t)]), ['*', 120, 150], ''),
@@ -157,7 +164,7 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
           { ol: n.steps.length ? n.steps : ['Aucune action enregistrée'], fontSize: 9, color: '#222222' },
           { text: `Signalé par ${n.by}`, fontSize: 8, color: C.grey, margin: [0, 4, 0, 0] },
         ], margin: [8, 6, 8, 6] }]] },
-        layout: { hLineWidth: () => 0, vLineWidth: (i: number) => (i === 0 ? 3 : 0), vLineColor: () => (n.status === 'Clôturée' ? C.green : C.red), fillColor: () => C.zebra },
+        layout: { hLineWidth: () => 0, vLineWidth: (i: number) => (i === 0 ? 3 : 0), vLineColor: () => (n.status === 'Clôturée' ? C.green : '#D9707D'), fillColor: () => C.zebra },
         margin: [0, 0, 0, 8], unbreakable: true,
       }))),
 
@@ -175,6 +182,7 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
         'Les enregistrements ne peuvent être ni modifiés ni supprimés ; une correction apparaît comme une nouvelle ligne.',
         'L’état de santé du personnel est enregistré uniquement comme « apte » ou « non apte », sans aucun symptôme.',
         'Le code de vérification en bas de page correspond aux données du jour : un document modifié après coup ne correspond plus au code conservé dans l’application.',
+        'Score du jour (indicateur interne, sans valeur réglementaire) : pourcentage des contrôles conformes, moins 10 points par non-conformité encore ouverte en fin de journée.',
         'L’application aide à l’autocontrôle ; elle ne remplace pas la responsabilité de l’exploitant.',
       ], fontSize: 10, lineHeight: 1.3, margin: [0, 0, 0, 14] },
       { text: 'Seuils appliqués et sources', fontSize: 13, bold: true, margin: [0, 0, 0, 8] },
