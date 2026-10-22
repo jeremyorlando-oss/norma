@@ -2,15 +2,15 @@ import { useEffect, useState } from 'react';
 import type { Api, Session } from '../api/types';
 import { dueAlert, type Right } from '../domain/rules';
 
-export type Target = 'releve' | 'nettoyage' | 'huile' | 'reception' | 'preparations';
+export type Target = 'releve' | 'nettoyage' | 'huile' | 'reception' | 'preparations' | 'allergenes' | 'signaler';
 const TILES: { right: Right; title: string; target?: Target }[] = [
   { right: 'releves', title: 'Températures', target: 'releve' },
   { right: 'nettoyage', title: 'Nettoyage', target: 'nettoyage' },
   { right: 'releves', title: 'Huile', target: 'huile' },
   { right: 'reception', title: 'Réception', target: 'reception' },
   { right: 'preparations', title: 'Préparations', target: 'preparations' },
-  { right: 'allergenes_lecture', title: 'Allergènes' },
-  { right: 'signaler_nc', title: 'Signaler un problème' },
+  { right: 'allergenes_lecture', title: 'Allergènes', target: 'allergenes' },
+  { right: 'signaler_nc', title: 'Signaler un problème', target: 'signaler' },
 ];
 
 export function SessionHome({ api, session, onOpen, onDepointer }:

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Api, Session } from './api/types';
+import { Allergenes } from './screens/Allergenes';
 import { Huile } from './screens/Huile';
+import { Signaler } from './screens/Signaler';
 import { Nettoyage } from './screens/Nettoyage';
 import { Preparations } from './screens/Preparations';
 import { Reception } from './screens/Reception';
@@ -52,6 +54,8 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
       {view === 'huile' && <Huile api={api} session={session} onBack={back} />}
       {view === 'reception' && <Reception api={api} session={session} onBack={back} />}
       {view === 'preparations' && <Preparations api={api} session={session} onBack={back} />}
+      {view === 'allergenes' && <Allergenes api={api} onBack={back} />}
+      {view === 'signaler' && <Signaler api={api} session={session} onBack={back} />}
     </>
   );
 }

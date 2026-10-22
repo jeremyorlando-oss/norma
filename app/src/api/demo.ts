@@ -1,6 +1,6 @@
 // Démo autonome : mêmes règles que le serveur, données en mémoire (rien n'est enregistré).
 import { dueAlert, lotCode, readingStatus, useBy, type Right } from '../domain/rules';
-import type { Api, CleaningTask, Equipment, Lot, Recipe, Session, StandAlert } from './types';
+import type { Api, CleaningTask, Dish, Equipment, Lot, Recipe, Session, StandAlert } from './types';
 
 const ALL: Right[] = ['pointage', 'prise_poste', 'nettoyage', 'signaler_nc', 'allergenes_lecture', 'releves', 'reception',
   'preparations', 'jeter_lot', 'traiter_nc', 'cloturer_nc', 'tableau_bord', 'heures_equipe', 'export', 'equipements',
@@ -151,6 +151,27 @@ export function createDemoApi(): Api {
       const l = lots.find((x) => x.id === lotId)!;
       if (l.disposed) throw new Error('Lot déjà jeté');
       l.disposed = { by: m.prenom, at: new Date() };
+    },
+    async dishes() {
+      // Exemple à valider avec les étiquettes réelles des produits (D-phase 1, points 3-4)
+      const ing: Record<string, string[]> = {
+        'Pain hot-dog': ['gluten'], 'Saucisse volaille': [], 'Ketchup': [], 'Moutarde': ['moutarde'], 'Oignons frits': ['gluten'],
+        'Guacamole': [], 'Tomate': [], 'Fromage': ['lait'], "Sauce Original's": ['oeufs', 'moutarde', 'poisson'],
+        'Sauce jalapeños': ['oeufs', 'moutarde'], 'Purée haricots rouges': [], 'Crispcheese': ['lait', 'gluten'],
+        'Chou rouge': [], 'Frites': [], 'Ciboulette': [],
+      };
+      const d = (name: string, list: string[]): Dish => ({ name, ingredients: list, allergens: [...new Set(list.flatMap((i) => ing[i] ?? []))] });
+      return [
+        d('Completo Classic', ['Pain hot-dog', 'Saucisse volaille', 'Ketchup', 'Moutarde', 'Oignons frits']),
+        d('Completo Original', ['Pain hot-dog', 'Saucisse volaille', 'Guacamole', 'Tomate', 'Fromage', "Sauce Original's", 'Ciboulette']),
+        d('Completo Spicy', ['Pain hot-dog', 'Saucisse volaille', 'Purée haricots rouges', 'Tomate', 'Crispcheese', 'Sauce jalapeños']),
+        d('Completo Royal', ['Pain hot-dog', 'Saucisse volaille', 'Guacamole', 'Tomate', 'Chou rouge', 'Oignons frits']),
+        d('Salchipapa', ['Frites', 'Saucisse volaille', "Sauce Original's", 'Sauce jalapeños', 'Ciboulette']),
+      ];
+    },
+    async signaler(token) {
+      const m = member(token);
+      if (!can(m, 'signaler_nc')) throw new Error('Ce poste ne peut pas signaler');
     },
     async alerts(now) {
       const list: StandAlert[] = [];

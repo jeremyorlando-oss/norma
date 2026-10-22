@@ -48,6 +48,9 @@ export interface Recipe { id: string; name: string; code: string; shelfDays: num
 export interface Lot { id: string; recipeName: string; lotCode: string; producedOn: Date; useBy: Date; by: string;
   status: 'a_garder' | 'aujourd_hui' | 'a_jeter' | 'jete'; disposed: { by: string; at: Date } | null }
 
+export interface Dish { name: string; ingredients: string[]; allergens: string[] }
+export type NcKind = 'corps_etranger' | 'allergie' | 'coupure_courant' | 'hygiene' | 'autre';
+
 /** Contrat commun : implémenté par la démo (mémoire) et par Supabase (fonctions RPC du serveur). */
 export interface Api {
   openSession(pin: string): Promise<Session>;
@@ -67,4 +70,6 @@ export interface Api {
   lots(now: Date): Promise<Lot[]>;
   preparation(token: string, recipeId: string): Promise<Lot>;
   jeterLot(token: string, lotId: string): Promise<void>;
+  dishes(): Promise<Dish[]>;
+  signaler(token: string, kind: NcKind, description: string): Promise<void>;
 }
