@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AdminDoc, Api, EventInfo, DayStats, Member, Nc, NcStep, Session } from '../api/types';
 import { Segmented } from '../components/Controls';
 import { Evenements } from './Evenements';
+import { Reglages } from './Reglages';
 
 type Tab = 'jour' | 'nc' | 'equipe' | 'plus';
 const STEP_LABEL: Record<NcStep['step'], string> = { mesure_immediate: 'Mesure immédiate', evaluation_risque: 'Évaluation du risque',
@@ -12,6 +13,7 @@ const hm = (d: Date) => d.toLocaleTimeString('fr-CH', { hour: '2-digit', minute:
 export function Direction({ api, onDepannage, onLogout }: { api: Api; onDepannage: (s: Session) => void; onLogout: () => void }) {
   const [session, setSession] = useState<Session | null>(null);
   const [tab, setTab] = useState<Tab>('jour');
+  const [reglages, setReglages] = useState(false);
 
   if (!session) return (
     <div className="screen">
@@ -34,9 +36,12 @@ export function Direction({ api, onDepannage, onLogout }: { api: Api; onDepannag
       {tab === 'jour' && <Jour api={api} onEvents={() => setTab('plus')} />}
       {tab === 'nc' && <Incidents api={api} session={session} />}
       {tab === 'equipe' && <Equipe api={api} session={session} />}
-      {tab === 'plus' && <Evenements api={api} session={session} />}
-      {tab === 'plus' && (
+      {tab === 'plus' && reglages && <Reglages api={api} session={session} onBack={() => setReglages(false)} />}
+      {tab === 'plus' && !reglages && <Evenements api={api} session={session} />}
+      {tab === 'plus' && !reglages && (
         <div className="group">
+          <button className="row" style={rowBtn} onClick={() => setReglages(true)}>
+            <span className="grow"><span className="main">Réglages</span><span className="sub">Matériel · plan de nettoyage · droits des postes</span></span>›</button>
           <button className="row" style={rowBtn} onClick={() => onDepannage(session)}>
             <span className="grow"><span className="main">Saisie de dépannage</span><span className="sub">Ouvre les écrans du stand · marqué « iPhone » dans le registre</span></span>›</button>
           <button className="row" style={rowBtn} onClick={async () => {
@@ -45,7 +50,7 @@ export function Direction({ api, onDepannage, onLogout }: { api: Api; onDepannag
           }}><span className="grow"><span className="main">Rapport du jour (PDF)</span><span className="sub">Envoyé automatiquement chaque soir · ici : générer maintenant</span></span>›</button>
           <button className="row" style={{ ...rowBtn, color: 'var(--red)' }} onClick={() => { setSession(null); onLogout(); }}>Se déconnecter</button>
         </div>)}
-      {tab === 'plus' && <Documents api={api} session={session} />}
+      {tab === 'plus' && !reglages && <Documents api={api} session={session} />}
     </div>
   );
 }

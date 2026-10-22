@@ -29,6 +29,7 @@ export interface CleaningTask {
   frequency: string;           // libellé lisible
   dueAt: Date | null;          // null = pas d'échéance horaire (ex. changement de tâche)
   lastDone: { by: string; at: Date } | null;
+  interval?: number | null;    // minutes entre deux passages (réglages)
 }
 
 export interface StandAlert {
@@ -66,6 +67,11 @@ export interface EventInfo { id: string; name: string; place: string; start: Dat
 export type EventInput = Omit<EventInfo, 'id'> & { id?: string };
 export interface EventSummary { jours: number; releves: number; relevesRouges: number; ncOuvertes: number; ncCloturees: number; nettoyages: number;
   receptions: number; lotsProduits: number; lotsJetes: number; heures: number; personnes: number; checklistsMontage: boolean }
+
+export type EquipmentType = Equipment['type'];
+export interface OfficialLimit { min: number | null; max: number | null; source: string }
+export type EquipmentInput = Omit<Equipment, 'id' | 'defaultValue'> & { id?: string };
+export interface CleaningTaskInput { id?: string; name: string; product: string; frequency: string; interval: number | null }
 
 /** Contrat commun : implémenté par la démo (mémoire) et par Supabase (fonctions RPC du serveur). */
 export interface Api {
@@ -107,6 +113,16 @@ export interface Api {
   openProduct(token: string, name: string, daysAfterOpening: number): Promise<Lot>;
   documents(): Promise<AdminDoc[]>;
   haccpReview(token: string | null): Promise<Date | null>;     // null = lecture ; token = enregistrer une revue
+  // Réglages (D16, D22, D23) : le serveur reste l'autorité sur les droits et les limites officielles
+  officialLimits(): Promise<Record<EquipmentType, OfficialLimit>>;
+  saveEquipment(token: string, e: EquipmentInput): Promise<void>;
+  deleteEquipment(token: string, id: string): Promise<void>;
+  saveCleaningTask(token: string, t: CleaningTaskInput): Promise<void>;
+  deleteCleaningTask(token: string, id: string): Promise<void>;
+  postes(): Promise<Record<string, Right[]>>;
+  setPosteRights(token: string, poste: string, rights: Right[]): Promise<void>;
+  extraRights(): Promise<Record<string, Right[]>>;
+  setExtraRights(token: string, memberId: string, rights: Right[]): Promise<void>;
   // Événements
   events(): Promise<EventInfo[]>;
   currentEvent(now: Date): Promise<EventInfo | null>;

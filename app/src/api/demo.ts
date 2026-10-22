@@ -110,7 +110,21 @@ export function createDemoApi(): Api {
     s.last = Date.now();
     return DEMO_MEMBERS.find((m) => m.id === s.memberId)!;
   };
-  const can = (m: { poste: string }, r: Right) => POSTES[m.poste].includes(r);
+  const extras = new Map<string, Right[]>();          // droits ajoutés à une personne (D23)
+  const can = (m: { id?: string; poste: string }, r: Right) => POSTES[m.poste].includes(r) || (!!m.id && !!extras.get(m.id)?.includes(r));
+  const rightsOf = (m: { id: string; poste: string }) => [...new Set([...POSTES[m.poste], ...(extras.get(m.id) ?? [])])];
+  // Limites officielles : on ne peut que les rendre plus strictes (identique au trigger equipment_threshold)
+  const LIMITS: Record<Equipment['type'], { min: number | null; max: number | null; source: string }> = {
+    froid_positif: { min: null, max: 5, source: 'Directive OFCO VD 08.04.2019 · BPHR 6.2 : 5 °C max' },
+    froid_negatif: { min: null, max: -18, source: 'Directive OFCO VD 08.04.2019 : −18 °C' },
+    cuisson: { min: 70, max: null, source: 'BPHR 2.4.4 : 70 °C à cœur, 2 min' },
+    maintien_chaud: { min: 65, max: null, source: 'Directive OFCO VD 08.04.2019 · BPHR 2.4.4 : 65 °C min' },
+    friteuse: { min: null, max: 175, source: 'BPHR 2.4.4 : 175 °C max' },
+  };
+  const DEFAULTS: Record<Equipment['type'], { min: number | null; max: number | null; def: number }> = {
+    froid_positif: { min: 0, max: 4, def: 3.5 }, froid_negatif: { min: null, max: -18, def: -20 }, cuisson: { min: 72, max: null, def: 75 },
+    maintien_chaud: { min: 65, max: null, def: 68 }, friteuse: { min: null, max: 175, def: 170 } };
+  const LOCKED: Right[] = ['pointage', 'prise_poste', 'signaler_nc'];   // jamais retirés : sécurité de base
   const newPin = () => { let p: string; do { p = String(Math.floor(Math.random() * 10000)).padStart(4, '0'); } while (isWeakPin(p) || DEMO_MEMBERS.some((x) => x.pin === p)); return p; };
   const aptToday = (id: string) => fit.get(id)?.day === today() && fit.get(id)!.ok;
   const due = (t: (typeof tasks)[number]) => (t.interval === null ? null : new Date((t.lastDone?.at ?? openedAt).getTime() + t.interval * 60_000));
@@ -126,7 +140,7 @@ export function createDemoApi(): Api {
       if (arrivee) clockedIn.set(m.id, new Date());
       const token = crypto.randomUUID();
       sessions.set(token, { memberId: m.id, last: Date.now() });
-      const s: Session = { token, memberId: m.id, langue: m.lang, prenom: m.prenom, poste: m.poste, arrivee, droits: POSTES[m.poste], aptToday: aptToday(m.id), trained: trained.has(m.id) };
+      const s: Session = { token, memberId: m.id, langue: m.lang, prenom: m.prenom, poste: m.poste, arrivee, droits: rightsOf(m), aptToday: aptToday(m.id), trained: trained.has(m.id) };
       return s;
     },
     async closeSession(token) { sessions.delete(token); },
@@ -231,7 +245,7 @@ export function createDemoApi(): Api {
       if (!['Gérant', 'Manager'].includes(m.poste)) throw new Error('Espace Direction réservé au Gérant et au Manager');
       const token = crypto.randomUUID();
       sessions.set(token, { memberId: m.id, last: Date.now(), iphone: true });   // pas d'expiration courte sur l'iPhone (Face ID)
-      return { token, memberId: m.id, langue: 'fr', prenom: m.prenom, poste: m.poste, arrivee: false, droits: POSTES[m.poste], aptToday: aptToday(m.id), trained: true };
+      return { token, memberId: m.id, langue: 'fr', prenom: m.prenom, poste: m.poste, arrivee: false, droits: rightsOf(m), aptToday: aptToday(m.id), trained: true };
     },
     async nonconformities() { return ncs.map((n) => ({ ...n, steps: [...n.steps] })); },
     async ncStep(token, ncId, step, content) {
@@ -287,6 +301,59 @@ export function createDemoApi(): Api {
         ncs: ncs.map((n) => ({ opened: hm(n.openedAt), kind: n.kind, description: n.description, by: n.openedBy, status: n.closed ? 'Clôturée' : 'OUVERTE',
           steps: n.steps.map((s) => `${hm(s.at)} ${steps[s.step]} : ${s.content} (${s.by})`) })),
       };
+    },
+    async officialLimits() { return LIMITS; },
+    async saveEquipment(token, input) {
+      const m = member(token);
+      if (!can(m, 'equipements')) throw new Error('Gestion du matériel non autorisée');
+      if (!input.name.trim()) throw new Error('Nom obligatoire');
+      const old = input.id ? equipments.find((x) => x.id === input.id) : undefined;
+      const d = DEFAULTS[input.type];
+      let { min, max } = input;
+      const changed = old ? old.min !== min || old.max !== max || old.type !== input.type : min !== d.min || max !== d.max;
+      if (changed && !can(m, 'reglages_gerant')) throw new Error('Seul le Gérant peut modifier les seuils');
+      const l = LIMITS[input.type];
+      if (l.max !== null && (max === null || max > l.max)) throw new Error(`Seuil max moins strict que la limite officielle (${l.source})`);
+      if (l.min !== null && (min === null || min < l.min)) throw new Error(`Seuil min moins strict que la limite officielle (${l.source})`);
+      if (min !== null && max !== null && min >= max) throw new Error('Le minimum doit être inférieur au maximum');
+      const def = min !== null && max !== null ? (min + max) / 2 : min !== null ? min + 3 : max! - 2;
+      if (old) Object.assign(old, { name: input.name.trim(), type: input.type, min, max, defaultValue: def });
+      else {
+        const id = crypto.randomUUID();
+        equipments.push({ id, name: input.name.trim(), type: input.type, min, max, defaultValue: def });
+        tasks.push({ id: 't-' + id, name: input.name.trim(), product: '[à définir]', frequency: 'À définir dans le plan', interval: null, lastDone: null });
+      }
+    },
+    async deleteEquipment(token, id) {
+      const m = member(token);
+      if (!can(m, 'equipements')) throw new Error('Gestion du matériel non autorisée');
+      equipments.splice(equipments.findIndex((x) => x.id === id), 1);   // serveur : archivé, les relevés restent
+    },
+    async saveCleaningTask(token, t) {
+      const m = member(token);
+      if (!can(m, 'reglages_gerant')) throw new Error('Seul le Gérant peut modifier le plan de nettoyage');
+      if (!t.name.trim() || !t.frequency.trim()) throw new Error('Zone et fréquence obligatoires');
+      const old = t.id ? tasks.find((x) => x.id === t.id) : undefined;
+      const v = { name: t.name.trim(), product: t.product.trim(), frequency: t.frequency.trim(), interval: t.interval };
+      if (old) Object.assign(old, v); else tasks.push({ id: crypto.randomUUID(), ...v, lastDone: null });
+    },
+    async deleteCleaningTask(token, id) {
+      const m = member(token);
+      if (!can(m, 'reglages_gerant')) throw new Error('Seul le Gérant peut modifier le plan de nettoyage');
+      tasks.splice(tasks.findIndex((x) => x.id === id), 1);
+    },
+    async postes() { return Object.fromEntries(Object.entries(POSTES).map(([k, v]) => [k, [...v]])); },
+    async setPosteRights(token, poste, rights) {
+      const m = member(token);
+      if (!can(m, 'reglages_gerant')) throw new Error('Seul le Gérant peut modifier les droits');
+      if (poste === 'Gérant') throw new Error('Les droits du Gérant ne se modifient pas');
+      POSTES[poste] = [...new Set([...LOCKED, ...rights.filter((r) => r !== 'reglages_gerant')])];
+    },
+    async extraRights() { return Object.fromEntries(extras); },
+    async setExtraRights(token, memberId, rights) {
+      const m = member(token);
+      if (!can(m, 'reglages_gerant')) throw new Error('Seul le Gérant peut modifier les droits');
+      extras.set(memberId, rights.filter((r) => r !== 'reglages_gerant'));
     },
     async events() { return [...events].sort((a, b) => b.start.getTime() - a.start.getTime()).map((e) => ({ ...e })); },
     async currentEvent(now) { const e = current(now); return e ? { ...e } : null; },
