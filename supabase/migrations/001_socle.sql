@@ -2,9 +2,10 @@
 -- non-conformités, journal d'audit. Registres en AJOUT SEUL (aucune modification/suppression).
 -- Compatible PostgreSQL 15+ (Supabase). Les politiques RLS Supabase sont dans 002.
 
-create extension if not exists pgcrypto;
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 create schema if not exists norma;
-set search_path = norma, public;
+set search_path = norma, public, extensions;
 
 -- ---------------------------------------------------------------- référentiel
 create table company (

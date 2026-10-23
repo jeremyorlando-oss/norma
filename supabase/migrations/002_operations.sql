@@ -1,6 +1,6 @@
 -- NORMA — opérations du stand : événements, pointage, prise de poste, nettoyage,
 -- huile, réception, recettes et lots de préparation. Toujours en AJOUT SEUL.
-set search_path = norma, public;
+set search_path = norma, public, extensions;
 
 create table event (
   id uuid primary key default gen_random_uuid(),

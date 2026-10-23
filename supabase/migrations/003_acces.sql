@@ -1,7 +1,7 @@
 -- NORMA — accès : sessions tablette par code, comptes Direction, RLS.
 -- Principe : aucune écriture directe dans les tables. Les applications appellent des fonctions (RPC)
 -- qui vérifient la session et les droits. Lecture limitée à sa propre entreprise.
-set search_path = norma, public;
+set search_path = norma, public, extensions;
 
 -- Émulation locale de Supabase (sans effet sur Supabase où ces objets existent déjà)
 do $$ begin
@@ -177,6 +177,6 @@ declare f record;
 begin
   for f in select p.oid::regprocedure as sig from pg_proc p join pg_namespace n on n.oid = p.pronamespace
            where n.nspname = 'norma' and p.prosecdef loop
-    execute format('alter function %s set search_path = norma, public', f.sig);
+    execute format('alter function %s set search_path = norma, public, extensions', f.sig);
   end loop;
 end $$;

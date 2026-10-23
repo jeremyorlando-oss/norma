@@ -1,6 +1,6 @@
 -- NORMA — fonctions d'action pour huile, réception, préparations, lots, non-conformités.
 -- Même modèle que 003 : acteur vérifié (session tablette ou iPhone Direction), droits contrôlés par les déclencheurs.
-set search_path = norma, public;
+set search_path = norma, public, extensions;
 
 create or replace function own_row(p_company uuid, p_table regclass, p_id uuid) returns void language plpgsql security definer as $$
 declare ok boolean;
@@ -98,6 +98,6 @@ declare f record;
 begin
   for f in select p.oid::regprocedure as sig from pg_proc p join pg_namespace n on n.oid = p.pronamespace
            where n.nspname = 'norma' and p.prosecdef loop
-    execute format('alter function %s set search_path = norma, public', f.sig);
+    execute format('alter function %s set search_path = norma, public, extensions', f.sig);
   end loop;
 end $$;
