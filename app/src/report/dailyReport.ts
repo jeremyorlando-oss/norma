@@ -1,4 +1,3 @@
-import { LOGO_FLAT_SVG } from '../brand/logo';
 // Rapport journalier HACCP (D31) : PDF autonome, lisible par un inspecteur sans l'application.
 // Indépendant de l'interface : utilisable dans le navigateur et côté serveur (fonction planchée en fin de journée).
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
@@ -108,8 +107,7 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
     }),
     content: [
       // ---------- Page 1 : en-tête + synthèse lisible en 10 secondes
-      { columnGap: 12, columns: [
-        { svg: LOGO_FLAT_SVG, width: 34 },
+      { columns: [
         { stack: [{ text: 'RAPPORT JOURNALIER HACCP', fontSize: 9, bold: true, color: C.grey, characterSpacing: 1 },
           { text: d.company.name, fontSize: 17, bold: true }, { text: d.event, fontSize: 11 }] },
         { stack: [{ text: cap(day), fontSize: 13, bold: true, alignment: 'right' },
