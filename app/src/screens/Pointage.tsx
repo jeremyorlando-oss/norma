@@ -1,4 +1,4 @@
-import { LOGO_ICON_URL } from '../brand/logo';
+import { LOGO_GLYPH_WHITE_URL } from '../brand/logo';
 import { useT } from '../i18n';
 import { OutageBanner } from '../components/OutageBanner';
 import { useEffect, useState } from 'react';
@@ -40,7 +40,12 @@ export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; 
     <div className="full-bg" style={{ background: BG[level] }}>
       <div className="screen" style={{ alignItems: 'center', gap: 14 }}>
         <div style={{ textAlign: 'center', paddingTop: 16 }}>
-          <img src={LOGO_ICON_URL} alt="NORMA" style={{ width: 44, height: 44, display: 'block', margin: '0 auto 6px' }} />
+          {/* Icône discrète style « verre liquide » : translucide, floutée, qui laisse passer la couleur de l'écran */}
+          <div aria-label="NORMA" role="img" style={{ width: 40, height: 40, margin: '0 auto 8px', borderRadius: 11, display: 'grid', placeItems: 'center',
+            background: 'linear-gradient(160deg, rgba(255,255,255,0.42), rgba(255,255,255,0.12))', border: '0.5px solid rgba(255,255,255,0.6)',
+            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.7), 0 4px 14px rgba(0,0,0,0.10)', backdropFilter: 'blur(12px) saturate(160%)', WebkitBackdropFilter: 'blur(12px) saturate(160%)' }}>
+            <img src={LOGO_GLYPH_WHITE_URL} alt="" style={{ width: 24, height: 24, opacity: 0.9, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.12))' }} />
+          </div>
           <div className="eyebrow" style={{ color: '#3C3C43' }}>
             {now.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long' })}
           </div>
