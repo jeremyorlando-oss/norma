@@ -56,6 +56,49 @@ const data: DayReport = {
       '18:42 Action corrective : joint contrôlé, consigne de fermeture rappelée (Orlando)', '18:45 Clôture (Orlando)'] }],
 };
 
-const out = process.argv[2] ?? 'rapport-exemple.pdf';
+// --conforme : une journée sans écart (exemple pour les présentations)
+if (process.argv.includes('--conforme')) {
+  data.event = 'Festival (exemple) · Lausanne · jour 2/3';
+  data.attendance = [
+    { name: 'Esteban Q.', poste: 'Chef de cuisine', arrival: '10:02', departure: '22:48', pauses: '15:00–15:40', apte: true },
+    { name: 'Noah', poste: 'Caisse', arrival: '10:30', departure: '22:51', pauses: '15:45–16:20', apte: true },
+    { name: 'Lucía', poste: 'Aide de cuisine', arrival: '11:00', departure: '22:30', pauses: '16:30–17:00', apte: true },
+  ];
+  data.readings = [
+    { time: '10:10', equipment: 'Frigo (positif)', value: '3,2 °C', status: 'vert', by: 'Esteban', source: 'Tablette' },
+    { time: '10:11', equipment: 'Congélateur', value: '−19,5 °C', status: 'vert', by: 'Esteban', source: 'Tablette' },
+    { time: '10:12', equipment: 'Saladette', value: '2,9 °C', status: 'vert', by: 'Esteban', source: 'Tablette' },
+    { time: '12:40', equipment: 'Réchauffe à cœur', value: '76,0 °C', status: 'vert', by: 'Esteban', source: 'Tablette' },
+    { time: '14:30', equipment: 'Maintien au chaud', value: '68,5 °C', status: 'vert', by: 'Esteban', source: 'Tablette' },
+    { time: '18:05', equipment: 'Frigo (positif)', value: '3,4 °C', status: 'vert', by: 'Esteban', source: 'Tablette' },
+    { time: '19:20', equipment: 'Réchauffe à cœur', value: '75,5 °C', status: 'vert', by: 'Esteban', source: 'Tablette' },
+    { time: '22:40', equipment: 'Frigo (positif)', value: '3,0 °C', status: 'vert', by: 'Esteban', source: 'Tablette' },
+  ];
+  data.oil = [
+    { time: '10:20', fryer: 'Friteuse 1', moment: 'Matin', temp: '170 °C', polar: '—', aspect: 'Normal', actions: '—', by: 'Esteban' },
+    { time: '17:30', fryer: 'Friteuse 1', moment: 'Service', temp: '172 °C', polar: '—', aspect: 'Normal', actions: '—', by: 'Esteban' },
+    { time: '22:30', fryer: 'Friteuse 1', moment: 'Soir', temp: '—', polar: '17 %', aspect: 'Normal', actions: 'Filtrée', by: 'Esteban' },
+  ];
+  data.cleaning = [
+    { time: '10:00', item: 'Plans de travail inox', product: 'Désinfectant alimentaire', by: 'Esteban', note: '' },
+    { time: '12:15', item: 'Ustensiles et pinces', product: 'Détergent + désinfectant', by: 'Esteban', note: '' },
+    { time: '12:30', item: 'Zone caisse et service', product: 'Désinfectant alimentaire', by: 'Noah', note: '' },
+    { time: '14:00', item: 'Sol', product: 'Détergent + désinfectant', by: 'Lucía', note: '' },
+    { time: '14:30', item: 'Zone caisse et service', product: 'Désinfectant alimentaire', by: 'Noah', note: '' },
+    { time: '16:25', item: 'Zone caisse et service', product: 'Désinfectant alimentaire', by: 'Noah', note: '' },
+    { time: '18:20', item: 'Zone caisse et service', product: 'Désinfectant alimentaire', by: 'Noah', note: '' },
+    { time: '20:15', item: 'Zone caisse et service', product: 'Désinfectant alimentaire', by: 'Noah', note: '' },
+    { time: '22:40', item: 'Sol', product: 'Détergent + désinfectant', by: 'Lucía', note: '' },
+    { time: '22:45', item: 'Friteuse (extérieur)', product: 'Produit spécial friture', by: 'Esteban', note: '' },
+  ];
+  data.cleaningMissed = [];
+  data.lots = [
+    { lot: 'ORI-221026-1', recipe: "Sauce Original's", by: 'Esteban', useBy: '24.10.2026', disposed: '—' },
+    { lot: 'JAL-221026-1', recipe: 'Sauce jalapeños', by: 'Esteban', useBy: '24.10.2026', disposed: '—' },
+    { lot: 'GUA-221026-1', recipe: 'Guacamole', by: 'Esteban', useBy: '24.10.2026', disposed: '—' },
+  ];
+  data.ncs = [];
+}
+const out = process.argv.find((a, i) => i > 1 && !a.startsWith('--')) ?? 'rapport-exemple.pdf';
 const code = await verificationCode(data);
 pdfMake.createPdf(buildDailyReport(data, code)).getBuffer((buf: Uint8Array) => { writeFileSync(out, buf); console.log('PDF écrit :', out, 'code', code); });
