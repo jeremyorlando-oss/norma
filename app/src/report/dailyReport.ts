@@ -2,6 +2,9 @@
 // Indépendant de l'interface : utilisable dans le navigateur et côté serveur (fonction planchée en fin de journée).
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 
+/** Date du jour local (AAAA-MM-JJ), sans décalage UTC */
+export const localIso = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+
 export interface DayReport {
   company: { name: string; address: string; phone: string; email: string; responsable: string };
   event: string;
@@ -99,7 +102,7 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
     pageMargins: [34, 44, 34, 40],
     // Un bandeau de section ne reste jamais seul en bas de page
     pageBreakBefore: (node) => typeof node.id === 'string' && node.id.startsWith('band-') && node.startPosition.top > 841.89 - 40 - 110,
-    info: { title: `Rapport HACCP ${d.date.toISOString().slice(0, 10)}`, author: d.company.name },
+    info: { title: `Rapport HACCP ${localIso(d.date)}`, author: d.company.name },
     header: (page) => (page === 1 ? null : { text: `${d.company.name}  ·  Rapport HACCP du ${d.date.toLocaleDateString('fr-CH')}  ·  ${d.event}`, fontSize: 8, color: C.grey, margin: [34, 20, 34, 0] }),
     footer: (page, pages) => ({
       columns: [{ text: `Code de vérification ${code}`, fontSize: 8, color: C.grey }, { text: `Page ${page} / ${pages}`, fontSize: 8, color: C.grey, alignment: 'right' }],

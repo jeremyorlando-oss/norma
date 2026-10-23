@@ -11,8 +11,9 @@ const STEP_LABEL: Record<NcStep['step'], string> = { mesure_immediate: 'Mesure i
 const hm = (d: Date) => d.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' });
 
 /** Espace Direction (iPhone Gérant / Manager) : version simplifiée, supervision + dépannage (D30). */
-export function Direction({ api, onDepannage, onLogout, onInspector }: { api: Api; onDepannage: (s: Session) => void; onLogout: () => void; onInspector: (a: InspectorAccess) => void }) {
-  const [session, setSession] = useState<Session | null>(null);
+export function Direction({ api, onDepannage, onLogout, onInspector, initialSession }: { api: Api; onDepannage: (s: Session) => void; onLogout: () => void;
+  onInspector: (a: InspectorAccess) => void; initialSession?: Session }) {
+  const [session, setSession] = useState<Session | null>(initialSession ?? null);
   const [tab, setTab] = useState<Tab>('jour');
   const [reglages, setReglages] = useState(false);
 

@@ -22,9 +22,10 @@ import { SessionHome, type Target } from './screens/SessionHome';
 type View = 'home' | 'notice' | 'prise' | 'formation' | Target;
 const IDLE_MS = 2 * 60_000;   // D35 : fermeture après 2 min sans activité
 
-export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
+/** direction : iPhone connecté (production) — l'app s'ouvre sur l'espace Direction ; signOut = déconnexion du compte. */
+export function App({ api, demoHint, direction }: { api: Api; demoHint?: string; direction?: { session: Session; signOut: () => void } }) {
   const [inspector, setInspector] = useState<InspectorAccess | null>(null);
-  const [mode, setMode] = useState<'stand' | 'direction'>(location.hash === '#direction' ? 'direction' : 'stand');
+  const [mode, setMode] = useState<'stand' | 'direction'>(direction || location.hash === '#direction' ? 'direction' : 'stand');
   const [session, setSession] = useState<Session | null>(null);
   const [depannage, setDepannage] = useState(false);
   const [view, setView] = useState<View>('home');
@@ -46,7 +47,7 @@ export function App({ api, demoHint }: { api: Api; demoHint?: string }) {
   }, [session, close]);
 
   if (inspector) return <Inspecteur api={api} access={inspector} onClose={() => setInspector(null)} />;
-  if (mode === 'direction' && !session) return <Direction api={api} onLogout={() => setMode('stand')} onInspector={setInspector}
+  if (mode === 'direction' && !session) return <Direction api={api} initialSession={direction?.session} onLogout={direction ? direction.signOut : () => setMode('stand')} onInspector={setInspector}
     onDepannage={(s) => { setDepannage(true); setSession(s); setView(s.aptToday ? 'home' : 'prise'); }} />;
   if (!session) return <Pointage api={api} demoHint={demoHint} onDirection={() => setMode('direction')}
     onSession={(s) => { setSession(s); setView(!s.privacyAck ? 'notice' : !s.aptToday ? 'prise' : !s.trained ? 'formation' : 'home'); }} />;

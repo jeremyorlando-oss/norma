@@ -58,6 +58,16 @@ select pg_temp.expect(exists (select 1 from jsonb_array_elements(norma.rpc_alert
 select pg_temp.expect(exists (select 1 from jsonb_array_elements(norma.rpc_incidents()) n where n->>'kind' = 'Coupure de courant'
   and jsonb_array_length(n->'steps') = 1), 'Incident coupure : durée ajoutée');
 
+-- Relevé hors seuil avec actions immédiates ; nettoyage avec le produit du plan
+reset role;
+insert into norma.equipment(id, company_id, name, type, min_value, max_value) values ('30000000-0000-0000-0000-0000000000f5','00000000-0000-0000-0000-000000000001','Frigo 5','froid_positif',0,4);
+set role authenticated;
+select pg_temp.expect(norma.rpc_releve2((select t from tk), '30000000-0000-0000-0000-0000000000f5', 7.5, array['Produits isolés','Responsable averti']) = 'rouge', 'Relevé hors seuil → rouge');
+select pg_temp.expect(exists (select 1 from jsonb_array_elements(norma.rpc_incidents()) n where n->>'description' like 'Frigo 5%'
+  and n->'steps'->0->>'content' = 'Produits isolés · Responsable averti'), 'Actions immédiates notées sur l''incident');
+select norma.rpc_nettoyage2((select t from tk), (select (i->>'id')::uuid from jsonb_array_elements(norma.rpc_lire_nettoyage(now())) i where i->>'name' = 'Frigo 5'));
+select pg_temp.expect(exists (select 1 from jsonb_array_elements(norma.rpc_lire_nettoyage(now())) i where i->>'name' = 'Frigo 5' and i->'lastDone'->>'by' = 'Esteban'), 'Nettoyage validé');
+
 -- Lectures
 select pg_temp.expect(not exists (select 1 from jsonb_array_elements(norma.rpc_lire_materiel()) e where e->>'name' = 'Frigo étranger'), 'Matériel : autre entreprise invisible');
 select pg_temp.expect(jsonb_array_length(norma.rpc_lire_nettoyage(now())) > 0, 'Plan de nettoyage lisible');
@@ -100,11 +110,11 @@ select pg_temp.expect_error($$select norma.rpc_evenement_supprimer((select id fr
 create temp table sh as select norma.rpc_heures(now() - interval '1 day', now() + interval '1 hour') as j;
 select pg_temp.expect(jsonb_array_length((select j from sh)) > 0, 'Heures de l''équipe lisibles');
 create temp table arr as select (x->>'id')::uuid as id, (x->>'start')::timestamptz as st from jsonb_array_elements((select j from sh)) x where x->>'prenom' = 'Esteban' limit 1;
-select pg_temp.expect_error($$select norma.rpc_correction_heures((select id from arr), (select st from arr), (select st from arr) + interval '8 hours', '[]', 'départ', '')$$, 'motif');
-select pg_temp.expect_error($$select norma.rpc_correction_heures((select id from arr), (select st from arr), (select st from arr) - interval '1 hour', '[]', 'départ', 'oubli')$$, 'après l’arrivée');
-select norma.rpc_correction_heures((select id from arr), (select st from arr), (select st from arr) + interval '8 hours', '[]', 'départ ajouté', 'A oublié de dépointer');
+select pg_temp.expect_error($$select norma.rpc_correction_heures((select id from arr), (select st from arr), (select st from arr) + interval '8 hours', '[]', '')$$, 'motif');
+select pg_temp.expect_error($$select norma.rpc_correction_heures((select id from arr), (select st from arr), (select st from arr) - interval '1 hour', '[]', 'oubli')$$, 'après l’arrivée');
+select norma.rpc_correction_heures((select id from arr), (select st from arr), (select st from arr) + interval '8 hours', '[]', 'A oublié de dépointer');
 select pg_temp.expect(exists (select 1 from jsonb_array_elements(norma.rpc_heures(now() - interval '1 day', now() + interval '9 hours')) x
-  where (x->>'id')::uuid = (select id from arr) and jsonb_array_length(x->'corrections') = 1 and x->>'end' is not null), 'Correction : nouvelle valeur + historique');
+  where (x->>'id')::uuid = (select id from arr) and jsonb_array_length(x->'corrections') = 1 and x->>'end' is not null and x->'corrections'->0->>'what' like 'départ en service → %'), 'Correction : nouvelle valeur + historique');
 select pg_temp.expect(jsonb_typeof(norma.rpc_alertes_heures(now())) = 'array', 'Alertes d''oubli de dépointage');
 
 -- Inspecteur et journal

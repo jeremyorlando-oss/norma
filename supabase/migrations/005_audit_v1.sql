@@ -33,6 +33,17 @@ create or replace function today_ch() returns date language sql stable security 
 create or replace function day_start(d date) returns timestamptz language sql stable as $$ select (d::timestamp at time zone 'Europe/Zurich') $$;
 create or replace function fmt1(v numeric) returns text language sql immutable as $$ select replace(replace(to_char(v, 'FM990.0'), '.', ','), '-', '−') $$;
 
+-- Incident de température : valeur au format suisse (4,5 °C)
+create or replace function temperature_reading_after() returns trigger language plpgsql as $$
+begin
+  if new.status = 'rouge' then
+    insert into nonconformity(company_id, kind, description, opened_by, reading_id)
+    select new.company_id, 'temperature', e.name || ' : ' || fmt1(new.value) || ' °C hors seuil', new.member_id, new.id
+    from equipment e where e.id = new.equipment_id;
+  end if;
+  return new;
+end $$;
+
 -- Prise de poste « aujourd'hui » = jour suisse
 create or replace function is_fit_today(p_member uuid) returns boolean language sql stable as $$
   select coalesce((select apte and tenue_ok and bijoux_ok and mains_ok from shift_check
@@ -458,10 +469,37 @@ begin
     'Courant rétabli après ' || mins || ' min' || case when mins > 30 then ' (plus de 30 min : relevés obligatoires, décider garder ou jeter)' else '' end, a.member_id);
 end $$;
 
+-- Relevé avec actions correctives immédiates (hors seuil) : notées sur l'incident ouvert automatiquement
+create or replace function rpc_releve2(p_token uuid, p_equipment uuid, p_value numeric, p_actions text[]) returns text
+language plpgsql security definer as $$
+declare r record; a record; nid uuid;
+begin
+  select * into a from actor(p_token);
+  select * into r from rpc_releve(p_token, p_equipment, p_value, now());
+  if r.status = 'rouge' and cardinality(coalesce(p_actions, '{}')) > 0 then
+    select id into nid from nonconformity where reading_id = r.id;
+    if nid is not null then
+      insert into nc_step(nc_id, step, content, member_id) values (nid, 'mesure_immediate', array_to_string(p_actions, ' · '), a.member_id);
+    end if;
+  end if;
+  return r.status;
+end $$;
+
+-- Nettoyage validé avec le produit prévu au plan
+create or replace function rpc_nettoyage2(p_token uuid, p_item uuid) returns void language plpgsql security definer as $$
+declare a record; i cleaning_item;
+begin
+  select * into a from actor(p_token);
+  select * into i from cleaning_item where id = p_item and company_id = a.company_id and active;
+  if i.id is null then raise exception 'Tâche inconnue'; end if;
+  insert into cleaning_done(item_id, member_id, product_used) values (p_item, a.member_id, i.product);
+end $$;
+
 -- ================================================================ RPC : Direction (iPhone)
-create or replace function rpc_correction_heures(p_arrivee uuid, p_start timestamptz, p_end timestamptz, p_breaks jsonb, p_what text, p_reason text)
+create or replace function rpc_correction_heures(p_arrivee uuid, p_start timestamptz, p_end timestamptz, p_breaks jsonb, p_reason text)
 returns void language plpgsql security definer as $$
-declare m member; t time_entry; b jsonb;
+declare m member; t time_entry; b jsonb; cur jsonb; w text[] := '{}';
+  f text := 'DD.MM HH24:MI';
 begin
   m := iphone_member();
   perform need(m.id, 'heures_equipe', 'Correction des heures non autorisée');
@@ -474,8 +512,17 @@ begin
     if b->>'end' is not null and (b->>'end')::timestamptz <= (b->>'start')::timestamptz then raise exception 'Une pause finit avant de commencer'; end if;
     if b->>'end' is not null and p_end is not null and (b->>'end')::timestamptz > p_end then raise exception 'Une pause est en dehors du service'; end if;
   end loop;
+  select x into cur from jsonb_array_elements(shifts_json(m.company_id, t.at - interval '1 day', now() + interval '1 day')) x where (x->>'id')::uuid = p_arrivee;
+  if (cur->>'start')::timestamptz is distinct from p_start then
+    w := w || ('arrivée ' || to_char((cur->>'start')::timestamptz at time zone 'Europe/Zurich', f) || ' → ' || to_char(p_start at time zone 'Europe/Zurich', f)); end if;
+  if (cur->>'end')::timestamptz is distinct from p_end then
+    w := w || ('départ ' || coalesce(to_char((cur->>'end')::timestamptz at time zone 'Europe/Zurich', f), 'en service') || ' → '
+      || coalesce(to_char(p_end at time zone 'Europe/Zurich', f), 'en service')); end if;
+  if jsonb_array_length(coalesce(cur->'breaks', '[]')) <> jsonb_array_length(coalesce(p_breaks, '[]')) or (cur->'breaks') <> coalesce(p_breaks, '[]') then
+    w := w || ('pauses ' || jsonb_array_length(coalesce(cur->'breaks', '[]')) || ' → ' || jsonb_array_length(coalesce(p_breaks, '[]'))); end if;
+  if cardinality(w) = 0 then return; end if;
   insert into shift_override(company_id, arrivee_id, start_at, end_at, breaks, what, reason, by_member)
-  values (m.company_id, p_arrivee, p_start, p_end, coalesce(p_breaks, '[]'), coalesce(p_what, 'correction'), btrim(p_reason), m.id);
+  values (m.company_id, p_arrivee, p_start, p_end, coalesce(p_breaks, '[]'), array_to_string(w, ' ; '), btrim(p_reason), m.id);
 end $$;
 
 create or replace function new_pin(p_member uuid) returns text language plpgsql security definer as $$
@@ -1056,6 +1103,18 @@ begin
       where t.company_id = c and t.score = 5), '[]'),
     'events', coalesce((select jsonb_agg(jsonb_build_object('name', e.name, 'place', e.place, 'dates', dmy(e.start_date) || ' → ' || dmy(e.end_date),
       'ofco', coalesce(nullif(e.ofco_ref, ''), 'non renseignée')) order by e.start_date desc) from event e where e.company_id = c), '[]'));
+end $$;
+
+-- ================================================================ photos des bons de livraison (Supabase Storage)
+do $$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'storage') then
+    insert into storage.buckets(id, name, public) values ('bons-livraison', 'bons-livraison', false) on conflict (id) do nothing;
+    execute $p$create policy norma_bons_depot on storage.objects for insert to authenticated
+      with check (bucket_id = 'bons-livraison' and (storage.foldername(name))[1] = norma.my_company()::text)$p$;
+    execute $p$create policy norma_bons_lecture on storage.objects for select to authenticated
+      using (bucket_id = 'bons-livraison' and (storage.foldername(name))[1] = norma.my_company()::text)$p$;
+  end if;
 end $$;
 
 -- ================================================================ sécurité : RLS sur les nouvelles tables, droits d'exécution
