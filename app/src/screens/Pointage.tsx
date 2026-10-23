@@ -1,3 +1,4 @@
+import { LOGO_ICON_URL } from '../brand/logo';
 import { useT } from '../i18n';
 import { OutageBanner } from '../components/OutageBanner';
 import { useEffect, useState } from 'react';
@@ -39,6 +40,7 @@ export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; 
     <div className="full-bg" style={{ background: BG[level] }}>
       <div className="screen" style={{ alignItems: 'center', gap: 14 }}>
         <div style={{ textAlign: 'center', paddingTop: 16 }}>
+          <img src={LOGO_ICON_URL} alt="NORMA" style={{ width: 44, height: 44, display: 'block', margin: '0 auto 6px' }} />
           <div className="eyebrow" style={{ color: '#3C3C43' }}>
             {now.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long' })}
           </div>
