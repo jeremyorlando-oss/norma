@@ -63,7 +63,7 @@ export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; 
           </div>
         )}
 
-        <div style={{ fontSize: 17 }}>Tapez votre code<div style={{ fontSize: 13, opacity: 0.7 }}>Escriba su código · Enter your code</div></div>
+        <div style={{ textAlign: 'center', width: '100%' }}><div style={{ fontSize: 17, fontWeight: 600 }}>Tapez votre code</div><div style={{ fontSize: 13, opacity: 0.7, marginTop: 2 }}>Escriba su código · Enter your code</div></div>
         <div className={`dots ${error ? 'shake' : ''}`} aria-label={`${code.length} chiffres saisis`}>
           {[0, 1, 2, 3].map((i) => <span key={i} className={`dot ${i < code.length ? 'on' : ''}`} />)}
         </div>

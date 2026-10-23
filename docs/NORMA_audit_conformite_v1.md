@@ -107,7 +107,7 @@ Autocontrôle documenté sous forme électronique (art. 85 ODAlOUs : « par écr
 | B4 Friteuse | ✅ démo | Plan de nettoyage : cuve complète à chaque changement d'huile, extérieur chaque soir |
 | B5 Source huile | ✅ | Rapport : « BPHR 2.4.4 » |
 | C1 Checklist de montage | ✅ démo | 18 points avec sources ; un NON ouvre une NC |
-| C2 Formation + vérification | ✅ démo | Briefing 6 règles (5 clés OMS + santé/accès) + quiz 5 questions (4/5 requis) avant le 1er service |
+| C2 Formation + vérification | ✅ démo | Briefing 6 règles (5 clés OMS + santé/accès) + quiz 5 questions (5/5 requis) avant le 1er service |
 | C3 Thermomètres | ✅ démo | Test eau + glace au montage ; sonde désinfectée avant chaque mesure |
 | C4 Nuisibles | ✅ démo | Checklists montage + ouverture ; type de signalement |
 | C5 Plainte / intoxication | ✅ démo | Signalement avec étapes art. 84 ODAlOUs (échantillons, OFCO) |

@@ -482,7 +482,7 @@ export function createDemoApi(): Api {
     },
     async saveTraining(token, score) {
       const m = member(token);
-      if (score < 4) throw new Error('Moins de 4 bonnes réponses sur 5 : relisez le briefing et recommencez');
+      if (score < 5) throw new Error('Toutes les réponses doivent être justes (5 sur 5) : relisez le briefing et recommencez');
       trained.add(m.id); trainedAt.set(m.id, { at: new Date(), score });
     },
     async hotBatches() { return hot.map((h) => ({ ...h })); },

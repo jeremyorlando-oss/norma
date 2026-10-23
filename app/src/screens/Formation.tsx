@@ -31,7 +31,7 @@ export function Formation({ api, session, onDone }: { api: Api; session: Session
 
   return (
     <div className="screen">
-      <div><div className="eyebrow">{t('Vérification · 4 bonnes réponses sur 5')}</div><h1 className="h1">{t('Quiz')}</h1></div>
+      <div><div className="eyebrow">{t('Vérification · 5 bonnes réponses sur 5')}</div><h1 className="h1">{t('Quiz')}</h1></div>
       {QUIZ.map((q, i) => (
         <div key={q.q} className="group" style={{ padding: '10px 0' }}>
           <div style={{ fontWeight: 600, fontSize: 16, padding: '0 16px 6px' }}>{i + 1}. {t(q.q)}</div>
