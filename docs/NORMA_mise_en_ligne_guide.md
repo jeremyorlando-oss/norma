@@ -24,5 +24,13 @@ Chaque mise à jour poussée sur GitHub est publiée automatiquement.
 - iPhone : ouvrir l'adresse, se connecter, accepter d'enregistrer le mot de passe (Face ID).
 - Ajouter l'équipe dans Direction → Équipe (chaque personne reçoit son code à 4 chiffres).
 
+## E. Espace Employé, rapport par e-mail, notifications, hors ligne (25.10.2026)
+1. SQL Editor : coller `supabase/migrations/006_employe.sql` → Run, puis `007_hors_ligne.sql` → Run (une fois chacun).
+2. Edge Functions → Deploy a new function → Via Editor, 3 fois : `invitation`, `rapport-soir`, `notifications` ; coller le fichier du même nom de `supabase/fonctions-a-coller/` → Deploy ; puis dans ses réglages, **désactiver Verify JWT**.
+3. Brevo (gratuit) : compte avec info@originalscompletos.ch, expéditeur vérifié, clé API. Supabase → Edge Functions → Secrets : `BREVO_API_KEY` (la clé, jamais transmise à Claude) et `NORMA_EXPEDITEUR` = info@originalscompletos.ch.
+4. SQL Editor : `supabase/setup_taches_auto.sql` → Run (2 tâches : norma-notifications chaque minute, norma-rapport-soir à :05).
+5. Test : iPhone (icône d'écran d'accueil) → Plus → Notifications → Activer ; Équipe → membre → Inviter (WhatsApp).
+6. Fonctions modifiées plus tard : `node app/scripts/build-fonctions.mjs` puis recoller le fichier.
+
 ## Encore à faire après le test
 Mode hors ligne · notifications iPhone · envoi automatique du rapport du soir · vraies recettes et plats (après le menu final).
