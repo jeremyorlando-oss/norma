@@ -15,7 +15,7 @@ export interface CddData {
   electronique: boolean;                                // signature dans l'app NORMA (mentions finales adaptées)
 }
 
-export const FONCTIONS = ['employé polyvalent', 'employée polyvalente', 'aide de cuisine', 'cuisinier', 'cuisinière', 'chef de cuisine',
+export const FONCTIONS = ['employé polyvalent', 'employée polyvalente', 'employé(e) de caisse', 'aide de cuisine', 'cuisinier', 'cuisinière', 'chef de cuisine',
   'caissier', 'caissière', 'manager'];
 
 /** Champs de la fiche nécessaires au contrat, encore vides. */

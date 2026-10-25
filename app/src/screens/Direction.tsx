@@ -401,6 +401,11 @@ function RhSection({ api, member }: { api: Api; member: Member }) {
   );
 }
 
+/** « En qualité de » proposé selon le poste choisi (modifiable). */
+const FONCTION_POSTE: Record<string, string> = { 'Aide de cuisine': 'aide de cuisine', 'Chef de cuisine': 'chef de cuisine', Caisse: 'employé(e) de caisse',
+  Manager: 'manager', 'Employé polyvalent': 'employé polyvalent' };
+const fonctionDe = (poste: string) => FONCTION_POSTE[poste] ?? poste.toLowerCase();
+
 const sel2 = { border: 'none', fontSize: 15, background: 'transparent', flex: 1, minWidth: 0, fontFamily: 'inherit' } as const;
 const iso2 = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -409,7 +414,7 @@ function ContratForm({ api, member, onDone }: { api: Api; member: Member; onDone
   const [open, setOpen] = useState(false);
   const [rates, setRates] = useState<Record<string, number | null>>({});
   const [poste, setPoste] = useState(member.poste);
-  const [fonction, setFonction] = useState('employé polyvalent');
+  const [fonction, setFonction] = useState(fonctionDe(member.poste));
   const [start, setStart] = useState(iso2(new Date()));
   const [end, setEnd] = useState(iso2(new Date()));
   const [rate, setRate] = useState('');
@@ -417,7 +422,7 @@ function ContratForm({ api, member, onDone }: { api: Api; member: Member; onDone
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => { if (open) api.paieReglages().then((r) => { setRates(r.postes); setRate(String(r.postes[poste] ?? '')); }).catch((e) => setError(e.message)); }, [open]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const choosePoste = (p: string) => { setPoste(p); setRate(String(rates[p] ?? '')); };
+  const choosePoste = (p: string) => { setPoste(p); setRate(String(rates[p] ?? '')); setFonction(fonctionDe(p)); };
   const go = async () => {
     setBusy(true); setError('');
     try { await api.makeContract(member.id, member.prenom, { poste, fonction: fonction.trim(), start, end, rate: Number(rate.replace(',', '.')), electronique }); setOpen(false); onDone(); }
