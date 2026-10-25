@@ -115,7 +115,7 @@ export interface Api {
   nonconformities(): Promise<Nc[]>;
   ncStep(token: string, ncId: string, step: NcStep['step'], content: string): Promise<void>;
   team(): Promise<Member[]>;
-  addMember(token: string, prenom: string, poste: string): Promise<string>;   // renvoie le code, affiché une seule fois
+  addMember(token: string, prenom: string, poste: string, nom?: string, lang?: string): Promise<string>;   // renvoie le code, affiché une seule fois
   resetPin(token: string, memberId: string): Promise<string>;
   dayStats(now: Date): Promise<DayStats>;
   dayReport(now: Date): Promise<DayReport>;

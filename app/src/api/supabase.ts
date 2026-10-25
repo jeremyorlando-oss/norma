@@ -123,7 +123,7 @@ export function createSupabaseApi(sb: SupabaseClient): Api {
     async team() {
       return (await rpc<J[]>('rpc_equipe')).map((m): Member => ({ id: m.id, prenom: m.prenom, poste: m.poste, clockedIn: m.clockedIn, since: d(m.since), aptToday: m.aptToday }));
     },
-    async addMember(_token, prenom, poste) { return rpc<string>('rpc_ajouter_membre', { p_prenom: prenom, p_nom: '', p_poste: poste, p_lang: 'fr' }); },
+    async addMember(_token, prenom, poste, nom = '', lang = 'fr') { return rpc<string>('rpc_ajouter_membre', { p_prenom: prenom, p_nom: nom, p_poste: poste, p_lang: lang }); },
     async resetPin(_token, memberId) { return rpc<string>('rpc_nouveau_code', { p_member: memberId }); },
     async dayStats(now) { return rpc<DayStats>('rpc_stats_jour', { p_now: now.toISOString() }); },
     async dayReport(now) { return report(await rpc('rpc_rapport_jour', { p_day: iso(now) })); },

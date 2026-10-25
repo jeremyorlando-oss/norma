@@ -189,6 +189,8 @@ function Incidents({ api, session }: { api: Api; session: Session }) {
 function Equipe({ api, session }: { api: Api; session: Session }) {
   const [team, setTeam] = useState<Member[]>([]);
   const [prenom, setPrenom] = useState('');
+  const [nom, setNom] = useState('');
+  const [lang, setLang] = useState('fr');
   const [poste, setPoste] = useState('Aide de cuisine');
   const [code, setCode] = useState<{ who: string; pin: string } | null>(null);
   const [error, setError] = useState('');
@@ -198,7 +200,7 @@ function Equipe({ api, session }: { api: Api; session: Session }) {
 
   const add = async () => {
     setError('');
-    try { const pin = await api.addMember(session.token, prenom.trim(), poste); setCode({ who: prenom.trim(), pin }); setPrenom(''); load(); }
+    try { const pin = await api.addMember(session.token, prenom.trim(), poste, nom.trim(), lang); setCode({ who: prenom.trim(), pin }); setPrenom(''); setNom(''); load(); }
     catch (e) { setError((e as Error).message); }
   };
   const reset = async (m: Member) => {
@@ -221,6 +223,9 @@ function Equipe({ api, session }: { api: Api; session: Session }) {
       <div className="section-label">Ajouter un membre</div>
       <div className="group">
         <label className="row"><span style={{ width: 80 }}>Prénom</span><input value={prenom} onChange={(e) => setPrenom(e.target.value)} style={{ flex: 1, border: 'none', fontSize: 16, fontFamily: 'inherit' }} /></label>
+        <label className="row"><span style={{ width: 80 }}>Nom</span><input value={nom} onChange={(e) => setNom(e.target.value)} style={{ flex: 1, border: 'none', fontSize: 16, fontFamily: 'inherit' }} /></label>
+        <label className="row"><span style={{ width: 80 }}>Langue</span>
+          <select value={lang} onChange={(e) => setLang(e.target.value)} style={{ flex: 1, border: 'none', fontSize: 16, background: 'transparent' }}><option value="fr">Français</option><option value="es">Español</option><option value="en">English</option></select></label>
         <label className="row"><span style={{ width: 80 }}>Poste</span>
           <select value={poste} onChange={(e) => setPoste(e.target.value)} style={{ flex: 1, border: 'none', fontSize: 16, background: 'transparent' }}>{postes.map((p) => <option key={p}>{p}</option>)}</select></label>
       </div>
