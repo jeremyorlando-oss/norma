@@ -11,11 +11,13 @@ const STEP_LABEL: Record<NcStep['step'], string> = { mesure_immediate: 'Mesure i
 const hm = (d: Date) => d.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' });
 
 /** Espace Direction (iPhone Gérant / Manager) : version simplifiée, supervision + dépannage (D30). */
-export function Direction({ api, onDepannage, onLogout, onInspector, initialSession }: { api: Api; onDepannage: (s: Session) => void; onLogout: () => void;
+export function Direction({ api, onDepannage, onLogout, onInspector, initialSession, monEspace }: { api: Api; onDepannage: (s: Session) => void; onLogout: () => void;
+  monEspace?: (close: () => void) => JSX.Element;
   onInspector: (a: InspectorAccess) => void; initialSession?: Session }) {
   const [session, setSession] = useState<Session | null>(initialSession ?? null);
   const [tab, setTab] = useState<Tab>('jour');
   const [reglages, setReglages] = useState(false);
+  const [espace, setEspace] = useState(false);
 
   if (!session) return (
     <div className="screen">
@@ -30,6 +32,7 @@ export function Direction({ api, onDepannage, onLogout, onInspector, initialSess
     </div>
   );
 
+  if (espace && monEspace) return monEspace(() => setEspace(false));
   return (
     <div className="screen">
       <div><div className="eyebrow">{session.poste}</div><h1 className="h1">{tab === 'jour' ? 'Aujourd’hui' : tab === 'nc' ? 'Incidents' : tab === 'equipe' ? 'Équipe' : 'Plus'}</h1></div>
@@ -44,6 +47,8 @@ export function Direction({ api, onDepannage, onLogout, onInspector, initialSess
       {tab === 'plus' && !reglages && <Evenements api={api} session={session} />}
       {tab === 'plus' && !reglages && (
         <div className="group">
+          {monEspace && <button className="row" style={rowBtn} onClick={() => setEspace(true)}>
+            <span className="grow"><span className="main">Mon espace</span><span className="sub">Mon planning · mes heures · mes documents · mon profil</span></span>›</button>}
           <button className="row" style={rowBtn} onClick={() => setReglages(true)}>
             <span className="grow"><span className="main">Réglages</span><span className="sub">Matériel · plan de nettoyage · droits des postes</span></span>›</button>
           {session.droits.includes('export') && <button className="row" style={rowBtn} onClick={async () => onInspector(await api.openInspector(session.token))}>

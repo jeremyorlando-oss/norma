@@ -50,7 +50,7 @@ export function Production() {
   if (who.kind === 'login') return <Connexion />;
   if (who.kind === 'device') return <App api={api} />;
   if (who.kind === 'employee') return <Employe sb={sb} signOut={signOut} />;
-  if (who.kind === 'direction') return <App api={api} direction={{ session: who.session, signOut }} />;
+  if (who.kind === 'direction') return <App api={api} direction={{ session: who.session, signOut, monEspace: (close) => <Employe sb={sb} signOut={signOut} onBack={close} /> }} />;
   return (
     <div className="screen" style={{ justifyContent: 'center', gap: 16, textAlign: 'center' }}>
       <h1 className="h1">Compte non relié</h1>

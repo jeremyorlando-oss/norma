@@ -17,7 +17,7 @@ const KIND_FR: Record<DocKind, string> = { identite: 'Pièce d’identité / per
 const day = (s: string) => { const [y, m, d] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
 const input = { width: '100%', border: 'none', fontFamily: 'inherit', fontSize: 17, background: 'transparent', color: '#000', padding: '14px 16px' } as const;
 
-export function Employe({ sb, signOut }: { sb: SupabaseClient; signOut: () => void }) {
+export function Employe({ sb, signOut, onBack }: { sb: SupabaseClient; signOut: () => void; onBack?: () => void }) {
   const db = sb.schema('norma');
   const [me, setMe] = useState<J | null>(null);
   const [error, setError] = useState('');
@@ -27,15 +27,16 @@ export function Employe({ sb, signOut }: { sb: SupabaseClient; signOut: () => vo
   }, [db]);
   useEffect(() => { load(); }, [load]);
   if (!me) return <div className="screen" style={{ justifyContent: 'center', alignItems: 'center' }}><p className="note">{error || '…'}</p></div>;
-  return <LangProvider lang={me.langue as Lang}><Espace sb={sb} me={me} reload={load} signOut={signOut} /></LangProvider>;
+  return <LangProvider lang={me.langue as Lang}><Espace sb={sb} me={me} reload={load} signOut={signOut} onBack={onBack} /></LangProvider>;
 }
 
-function Espace({ sb, me, reload, signOut }: { sb: SupabaseClient; me: J; reload: () => void; signOut: () => void }) {
+function Espace({ sb, me, reload, signOut, onBack }: { sb: SupabaseClient; me: J; reload: () => void; signOut: () => void; onBack?: () => void }) {
   const t = useT();
   const [tab, setTab] = useState<Tab>('planning');
   const titles: Record<Tab, string> = { planning: t('Mon planning'), heures: t('Mes heures'), documents: t('Mes documents'), profil: t('Mon profil') };
   return (
     <div className="screen">
+      {onBack && <button className="link" style={{ alignSelf: 'flex-start', padding: 0 }} onClick={onBack}>‹ Direction</button>}
       <div><div className="eyebrow">{me.prenom} · {t(me.poste)}</div><h1 className="h1">{titles[tab]}</h1></div>
       <Segmented label={t('Sections')} value={tab} onChange={setTab}
         options={[{ value: 'planning', label: t('Planning') }, { value: 'heures', label: t('Heures') }, { value: 'documents', label: t('Documents') }, { value: 'profil', label: t('Profil') }]} />
