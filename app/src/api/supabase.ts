@@ -3,9 +3,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Right, Status } from '../domain/rules';
 import { PRIVACY_VERSION } from '../domain/privacy';
+import { currentSubscription, subscribePush } from '../notify/push';
 import type { DayReport } from '../report/dailyReport';
 import type { Api, CleaningTask, Equipment, EquipmentType, EventInfo, EventSummary, HoursAlert, HotBatch, Lot, Member, Nc,
-  OfficialLimit, Session, StandAlert, TimeEntry, AdminDoc, Dish, Recipe, DayStats, Outage, AuditEntry, InspectorInfo } from './types';
+  OfficialLimit, Session, MemberAccount, MemberDoc, ReportSettings, StandAlert, TimeEntry, AdminDoc, Dish, Recipe, DayStats, Outage, AuditEntry, InspectorInfo } from './types';
 
 /** Jeton des actions faites depuis l'iPhone (Gérant / Manager) : le serveur identifie la personne par son compte. */
 export const IPHONE_TOKEN = 'iphone';
@@ -125,6 +126,41 @@ export function createSupabaseApi(sb: SupabaseClient): Api {
     },
     async addMember(_token, prenom, poste, nom = '', lang = 'fr') { return rpc<string>('rpc_ajouter_membre', { p_prenom: prenom, p_nom: nom, p_poste: poste, p_lang: lang }); },
     async resetPin(_token, memberId) { return rpc<string>('rpc_nouveau_code', { p_member: memberId }); },
+    async accounts() {
+      return (await rpc<J[]>('rpc_comptes')).map((j): MemberAccount => ({ memberId: j.memberId, langue: j.langue, compte: j.compte,
+        invitationJusqua: d(j.invitationJusqua), documents: j.documents }));
+    },
+    async inviteMember(memberId) { return rpc<string>('rpc_inviter', { p_member: memberId }); },
+    async revokeAccess(memberId) { await rpc('rpc_retirer_acces', { p_member: memberId }); },
+    async memberDocs(memberId) {
+      return (await rpc<J[]>('rpc_documents_membre', { p_member: memberId })).map((j): MemberDoc => ({ ...(j as MemberDoc), at: new Date(j.at) }));
+    },
+    async docUrl(path) {
+      const { data, error } = await sb.storage.from('documents-employes').createSignedUrl(path, 120);
+      if (error || !data) throw new Error('Document introuvable');
+      return data.signedUrl;
+    },
+    async deleteDoc(doc) {
+      const { error } = await sb.storage.from('documents-employes').remove([doc.path]);
+      if (error) throw new Error(error.message);
+      await rpc('rpc_document_supprimer', { p_id: doc.id });
+    },
+    async reportSettings() {
+      const j = await rpc('rpc_rapports_envoyes');
+      return { hour: j.hour, sent: (j.sent as J[]).map((x) => ({ day: day(x.day), at: new Date(x.at), to: x.to })) } as ReportSettings;
+    },
+    async setReportHour(hour) { await rpc('rpc_heure_rapport', { p_hour: hour }); },
+    async pushEnabled() { return !!(await currentSubscription()) && rpc<boolean>('rpc_push_actif'); },
+    async pushSubscribe() {
+      const key = await rpc<string | null>('rpc_push_cle');
+      if (!key) throw new Error('Le serveur prépare les notifications : réessayez dans une minute.');
+      const s = await subscribePush(key);
+      await rpc('rpc_push_abonner', { p_endpoint: s.endpoint, p_p256dh: s.p256dh, p_auth: s.auth });
+    },
+    async pushUnsubscribe() {
+      const sub = await currentSubscription();
+      if (sub) { await rpc('rpc_push_desabonner', { p_endpoint: sub.endpoint }); await sub.unsubscribe(); }
+    },
     async dayStats(now) { return rpc<DayStats>('rpc_stats_jour', { p_now: now.toISOString() }); },
     async dayReport(now) { return report(await rpc('rpc_rapport_jour', { p_day: iso(now) })); },
     async documents() { return rpc<AdminDoc[]>('rpc_documents'); },

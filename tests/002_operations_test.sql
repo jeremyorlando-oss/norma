@@ -69,10 +69,10 @@ insert into prep_lot(company_id,recipe_id,member_id,produced_on) values
  ('00000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002','2026-10-22');
 select pg_temp.expect((select array_agg(lot_code order by seq) from prep_lot) = '{JAL-221026-1,JAL-221026-2}', 'Lots JAL-221026-1 et -2');
 select pg_temp.expect((select bool_and(use_by = '2026-10-24') from prep_lot), 'Date limite J+2 = 24.10.2026');
-insert into prep_lot(company_id,recipe_id,member_id,produced_on) values ('00000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002',current_date - 3);
-select pg_temp.expect((select status from lot_status where produced_on = current_date - 3) = 'a_jeter', 'Lot dépassé → à jeter');
-select pg_temp.expect_error($$insert into lot_disposal(lot_id,member_id) select id,'20000000-0000-0000-0000-000000000004' from prep_lot where produced_on = current_date - 3$$, 'pas le droit');
-insert into lot_disposal(lot_id,member_id) select id,'20000000-0000-0000-0000-000000000002' from prep_lot where produced_on = current_date - 3;
-select pg_temp.expect((select status from lot_status where produced_on = current_date - 3) = 'jete', 'Lot jeté enregistré');
-select pg_temp.expect_error($$insert into lot_disposal(lot_id,member_id) select id,'20000000-0000-0000-0000-000000000002' from prep_lot where produced_on = current_date - 3$$, 'lot_disposal_lot_id_key');
+insert into prep_lot(company_id,recipe_id,member_id,produced_on) values ('00000000-0000-0000-0000-000000000001','50000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002',current_date - 10);
+select pg_temp.expect((select status from lot_status where produced_on = current_date - 10) = 'a_jeter', 'Lot dépassé → à jeter');
+select pg_temp.expect_error($$insert into lot_disposal(lot_id,member_id) select id,'20000000-0000-0000-0000-000000000004' from prep_lot where produced_on = current_date - 10$$, 'pas le droit');
+insert into lot_disposal(lot_id,member_id) select id,'20000000-0000-0000-0000-000000000002' from prep_lot where produced_on = current_date - 10;
+select pg_temp.expect((select status from lot_status where produced_on = current_date - 10) = 'jete', 'Lot jeté enregistré');
+select pg_temp.expect_error($$insert into lot_disposal(lot_id,member_id) select id,'20000000-0000-0000-0000-000000000002' from prep_lot where produced_on = current_date - 10$$, 'lot_disposal_lot_id_key');
 select 'TOUS LES TESTS OPÉRATIONS RÉUSSIS' as resultat;

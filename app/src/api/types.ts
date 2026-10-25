@@ -90,6 +90,11 @@ export interface AuditEntry { at: Date; who: string; action: string }
 export interface Outage { start: Date; end: Date | null; by: string }
 
 /** Contrat commun : implémenté par la démo (mémoire) et par Supabase (fonctions RPC du serveur). */
+export interface MemberAccount { memberId: string; langue: 'fr' | 'es' | 'en'; compte: boolean; invitationJusqua: Date | null; documents: number }
+export type DocKind = 'identite' | 'avs' | 'bancaire' | 'certificat_medical' | 'autre';
+export interface MemberDoc { id: string; kind: DocKind; path: string; filename: string; at: Date }
+export interface ReportSettings { hour: number; sent: { day: Date; at: Date; to: number }[] }
+
 export interface Api {
   openSession(pin: string): Promise<Session>;
   closeSession(token: string): Promise<void>;
@@ -116,6 +121,19 @@ export interface Api {
   ncStep(token: string, ncId: string, step: NcStep['step'], content: string): Promise<void>;
   team(): Promise<Member[]>;
   addMember(token: string, prenom: string, poste: string, nom?: string, lang?: string): Promise<string>;   // renvoie le code, affiché une seule fois
+  // Espace Employé (V1.1) : comptes téléphone, invitations WhatsApp, documents déposés
+  accounts(): Promise<MemberAccount[]>;
+  inviteMember(memberId: string): Promise<string>;   // jeton du lien (48 h, usage unique)
+  revokeAccess(memberId: string): Promise<void>;
+  memberDocs(memberId: string): Promise<MemberDoc[]>;
+  docUrl(path: string): Promise<string>;
+  deleteDoc(doc: MemberDoc): Promise<void>;
+  // Envois automatiques : rapport du matin par e-mail, notifications iPhone
+  reportSettings(): Promise<ReportSettings>;
+  setReportHour(hour: number): Promise<void>;
+  pushEnabled(): Promise<boolean>;
+  pushSubscribe(): Promise<void>;
+  pushUnsubscribe(): Promise<void>;
   resetPin(token: string, memberId: string): Promise<string>;
   dayStats(now: Date): Promise<DayStats>;
   dayReport(now: Date): Promise<DayReport>;

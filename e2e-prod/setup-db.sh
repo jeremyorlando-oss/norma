@@ -10,9 +10,10 @@ su postgres -c "psql -q -d postgres" <<'SQL' >/dev/null 2>&1 || true
 create role anon nologin;
 create role authenticated nologin;
 create role authenticator login password 'test' noinherit;
+create role service_role nologin bypassrls;
 SQL
-su postgres -c "psql -q -d postgres -c 'grant anon, authenticated to authenticator'" >/dev/null 2>&1 || true
-for f in supabase/migrations/00[1-5]*.sql; do su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB -f $f" >/dev/null; done
+su postgres -c "psql -q -d postgres -c 'grant anon, authenticated, service_role to authenticator'" >/dev/null 2>&1 || true
+for f in supabase/migrations/00[1-6]*.sql; do su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB -f $f" >/dev/null; done
 sed "s/'0000');/'2580');/" supabase/setup_original_completos.sql | su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB" >/dev/null
 su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB -f supabase/seed_materiel_nettoyage.sql" >/dev/null
 su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB" <<'SQL' >/dev/null
@@ -23,6 +24,8 @@ grant usage on schema auth to authenticated, anon;
 grant execute on function auth.uid() to authenticated, anon;
 set search_path = norma, public, extensions;
 update company set address = 'Bussigny, Suisse', phone = '078 352 12 02', email = 'info@originalscompletos.ch', responsable = 'Orlando Quispe Oscco';
+insert into auth.users(id, email) values ('aaaaaaaa-0000-0000-0000-000000000001','tablette@test.ch'), ('aaaaaaaa-0000-0000-0000-000000000002','orlando@test.ch');
+grant usage on schema auth to service_role;
 insert into device(company_id, name, auth_user_id) values ('00000000-0000-0000-0000-0000000000c1', 'Tablette stand', 'aaaaaaaa-0000-0000-0000-000000000001');
 update member set auth_user_id = 'aaaaaaaa-0000-0000-0000-000000000002' where id = '00000000-0000-0000-0000-0000000000b1';
 insert into member(id, company_id, poste_id, first_name, last_name, lang) values

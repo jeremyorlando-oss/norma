@@ -31,6 +31,7 @@ const ago = (min: number) => new Date(Date.now() - min * 60_000);
 const today = () => new Date().toDateString();
 
 export function createDemoApi(): Api {
+  const demoAccounts = new Set<string>(); const demoInvites = new Map<string, Date>(); let demoReportHour = 6;
   const entries: TimeEntry[] = [];
   const active = (id: string) => entries.find((e) => e.memberId === id && !e.end);
   const clockedIn = { has: (id: string) => !!active(id), get: (id: string) => active(id)?.start,
@@ -324,12 +325,30 @@ export function createDemoApi(): Api {
       return DEMO_MEMBERS.map((m) => ({ id: m.id, prenom: m.prenom, poste: m.poste, clockedIn: clockedIn.has(m.id), since: clockedIn.get(m.id) ?? null,
         aptToday: fit.get(m.id)?.day === today() ? fit.get(m.id)!.ok : null }));
     },
-    async addMember(token, prenom, poste) {
+    async accounts() {
+      return DEMO_MEMBERS.map((m) => ({ memberId: m.id, langue: m.lang, compte: demoAccounts.has(m.id),
+        invitationJusqua: demoInvites.get(m.id) ?? null, documents: 0 }));
+    },
+    async inviteMember(memberId) {
+      if (demoAccounts.has(memberId)) throw new Error('Cette personne a déjà un compte');
+      demoInvites.set(memberId, new Date(Date.now() + 48 * 3600_000));
+      return 'demo'.padEnd(48, '0');
+    },
+    async revokeAccess(memberId) { demoAccounts.delete(memberId); },
+    async memberDocs() { return []; },
+    async docUrl() { throw new Error('Pas de documents dans la démo'); },
+    async deleteDoc() { /* démo */ },
+    async reportSettings() { return { hour: demoReportHour, sent: [] }; },
+    async setReportHour(h) { demoReportHour = h; },
+    async pushEnabled() { return false; },
+    async pushSubscribe() { throw new Error('Notifications disponibles dans l’app en ligne (pas dans la démo)'); },
+    async pushUnsubscribe() { /* démo */ },
+    async addMember(token, prenom, poste, _nom = '', lang = 'fr') {
       const m = member(token);
       if (!can(m, 'gestion_equipe')) throw new Error('Gestion de l’équipe non autorisée');
       if (poste === 'Gérant' || (poste === 'Manager' && m.poste !== 'Gérant')) throw new Error('Seul le Gérant peut nommer un Manager');
       const pin = newPin();
-      DEMO_MEMBERS.push({ id: crypto.randomUUID(), prenom, poste, pin, lang: 'fr' });
+      DEMO_MEMBERS.push({ id: crypto.randomUUID(), prenom, poste, pin, lang: lang as 'fr' });
       return pin;
     },
     async resetPin(token, memberId) {

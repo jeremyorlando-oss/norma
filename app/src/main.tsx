@@ -12,4 +12,5 @@ if (__DEMO__) {
   root.render(<StrictMode><App api={createDemoApi()} demoHint={hint} /></StrictMode>);
 } else {
   root.render(<StrictMode><Production /></StrictMode>);
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => undefined);
 }

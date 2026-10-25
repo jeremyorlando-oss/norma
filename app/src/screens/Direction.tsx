@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AdminDoc, Api, AuditEntry, EventInfo, InspectorAccess, DayStats, Member, Nc, NcStep, Session } from '../api/types';
+import type { AdminDoc, Api, AuditEntry, DocKind, EventInfo, InspectorAccess, DayStats, Member, MemberAccount, MemberDoc, Nc, NcStep, ReportSettings, Session } from '../api/types';
 import { Segmented } from '../components/Controls';
 import { Evenements } from './Evenements';
 import { Reglages } from './Reglages';
@@ -53,9 +53,10 @@ export function Direction({ api, onDepannage, onLogout, onInspector, initialSess
           <button className="row" style={rowBtn} onClick={async () => {
             const { downloadDailyReport } = await import('../report/download');
             await downloadDailyReport(await api.dayReport(new Date()));
-          }}><span className="grow"><span className="main">Rapport du jour (PDF)</span><span className="sub">Envoyé automatiquement chaque soir · ici : générer maintenant</span></span>›</button>
+          }}><span className="grow"><span className="main">Rapport du jour (PDF)</span><span className="sub">Envoyé automatiquement chaque matin par e-mail · ici : générer maintenant</span></span>›</button>
           <button className="row" style={{ ...rowBtn, color: 'var(--red)' }} onClick={() => { setSession(null); onLogout(); }}>Se déconnecter</button>
         </div>)}
+      {tab === 'plus' && !reglages && <Envois api={api} session={session} />}
       {tab === 'plus' && !reglages && <Documents api={api} session={session} />}
       {tab === 'plus' && !reglages && <Journal api={api} />}
     </div>
@@ -186,26 +187,56 @@ function Incidents({ api, session }: { api: Api; session: Session }) {
   );
 }
 
+const INVITE_MSG: Record<string, (p: string, l: string) => string> = {
+  fr: (p, l) => `Bonjour ${p}, voici ton accès personnel à NORMA, l’app de l’équipe : ${l}\nTu y trouveras ton planning, tes heures et tes documents. Le lien est valable 48 h et ne sert qu’une fois.`,
+  es: (p, l) => `Hola ${p}, aquí tienes tu acceso personal a NORMA, la app del equipo: ${l}\nAhí verás tu planificación, tus horas y tus documentos. El enlace es válido 48 h y solo sirve una vez.`,
+  en: (p, l) => `Hi ${p}, here is your personal access to NORMA, the team app: ${l}\nYou will find your schedule, your hours and your documents there. The link is valid for 48 h and works only once.`,
+};
+const DOC_LABEL: Record<DocKind, string> = { identite: 'Pièce d’identité / permis', avs: 'Carte AVS', bancaire: 'Coordonnées bancaires',
+  certificat_medical: 'Certificat médical', autre: 'Autre' };
+const dmy = (d: Date) => d.toLocaleDateString('fr-CH');
+
 function Equipe({ api, session }: { api: Api; session: Session }) {
   const [team, setTeam] = useState<Member[]>([]);
+  const [acc, setAcc] = useState<Record<string, MemberAccount>>({});
+  const [open, setOpen] = useState<string | null>(null);
+  const [docs, setDocs] = useState<MemberDoc[]>([]);
   const [prenom, setPrenom] = useState('');
   const [nom, setNom] = useState('');
   const [lang, setLang] = useState('fr');
   const [poste, setPoste] = useState('Aide de cuisine');
   const [code, setCode] = useState<{ who: string; pin: string } | null>(null);
   const [error, setError] = useState('');
-  const load = useCallback(() => api.team().then(setTeam), [api]);
+  const load = useCallback(() => {
+    api.team().then(setTeam);
+    api.accounts().then((l) => setAcc(Object.fromEntries(l.map((a) => [a.memberId, a])))).catch(() => undefined);
+  }, [api]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setDocs([]); if (open) api.memberDocs(open).then(setDocs).catch(() => undefined); }, [api, open]);
   const postes = ['Aide de cuisine', 'Caisse', 'Chef de cuisine', ...(session.poste === 'Gérant' ? ['Manager'] : [])];
+  const isOwner = session.droits.includes('reglages_gerant');
+  const run = (f: () => Promise<unknown>) => async () => { setError(''); try { await f(); load(); } catch (e) { setError((e as Error).message); } };
 
-  const add = async () => {
-    setError('');
-    try { const pin = await api.addMember(session.token, prenom.trim(), poste, nom.trim(), lang); setCode({ who: prenom.trim(), pin }); setPrenom(''); setNom(''); load(); }
-    catch (e) { setError((e as Error).message); }
-  };
-  const reset = async (m: Member) => {
-    setError('');
-    try { setCode({ who: m.prenom, pin: await api.resetPin(session.token, m.id) }); } catch (e) { setError((e as Error).message); }
+  const add = run(async () => { const pin = await api.addMember(session.token, prenom.trim(), poste, nom.trim(), lang); setCode({ who: prenom.trim(), pin }); setPrenom(''); setNom(''); });
+  const reset = (m: Member) => run(async () => setCode({ who: m.prenom, pin: await api.resetPin(session.token, m.id) }));
+  const invite = (m: Member) => run(async () => {
+    const tok = await api.inviteMember(m.id);
+    const link = `${location.origin}/#/invitation/${tok}`;
+    const msg = (INVITE_MSG[acc[m.id]?.langue ?? 'fr'] ?? INVITE_MSG.fr)(m.prenom, link);
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  });
+  const revoke = (m: Member) => run(async () => { if (confirm(`Retirer l’accès téléphone de ${m.prenom} ?`)) await api.revokeAccess(m.id); });
+  const openDoc = (d: MemberDoc) => run(async () => { window.open(await api.docUrl(d.path), '_blank'); });
+  const delDoc = (d: MemberDoc) => run(async () => {
+    if (!confirm(`Supprimer définitivement « ${d.filename} » ?`)) return;
+    await api.deleteDoc(d); setDocs((x) => x.filter((y) => y.id !== d.id));
+  });
+  const status = (m: Member) => {
+    const a = acc[m.id];
+    if (!a) return '';
+    if (a.compte) return ' · téléphone ✓';
+    if (a.invitationJusqua) return ' · invitation envoyée';
+    return '';
   };
   return (
     <>
@@ -216,10 +247,30 @@ function Equipe({ api, session }: { api: Api; session: Session }) {
           <button className="link" onClick={() => setCode(null)}>C’est noté</button>
         </div>)}
       <div className="group">
-        {team.map((m) => (
-          <div className="row" key={m.id}><span className="grow"><span className="main">{m.prenom}</span><span className="sub">{m.poste}{m.clockedIn ? ' · pointé' : ''}</span></span>
-            {!(m.poste === 'Gérant' && session.poste !== 'Gérant') && <button className="link" style={{ fontSize: 15 }} onClick={() => reset(m)}>Nouveau code</button>}</div>))}
+        {team.map((m) => {
+          const a = acc[m.id]; const canManage = !(m.poste === 'Gérant' && session.poste !== 'Gérant');
+          return (<div key={m.id}>
+            <button className="row" style={rowBtn} onClick={() => setOpen(open === m.id ? null : m.id)} aria-expanded={open === m.id}>
+              <span className="grow"><span className="main">{m.prenom}</span><span className="sub">{m.poste}{m.clockedIn ? ' · pointé' : ''}{status(m)}</span></span>
+              {open === m.id ? '⌃' : '›'}</button>
+            {open === m.id && (
+              <div style={{ padding: '4px 16px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {canManage && <button className="link" style={{ textAlign: 'left' }} onClick={reset(m)}>Nouveau code tablette</button>}
+                {canManage && m.id !== session.memberId && !a?.compte && <button className="link" style={{ textAlign: 'left' }} onClick={invite(m)}>
+                  {a?.invitationJusqua ? 'Renvoyer l’invitation par WhatsApp' : 'Inviter sur son téléphone (WhatsApp)'}</button>}
+                {a?.invitationJusqua && !a.compte && <span className="sub">Lien valable jusqu’au {a.invitationJusqua.toLocaleString('fr-CH', { dateStyle: 'short', timeStyle: 'short' })}</span>}
+                {canManage && a?.compte && m.id !== session.memberId && <button className="link" style={{ textAlign: 'left', color: 'var(--red)' }} onClick={revoke(m)}>Retirer l’accès téléphone</button>}
+                <div className="sub" style={{ marginTop: 4 }}>Documents déposés{docs.length ? '' : ' : aucun'}</div>
+                {docs.map((d) => (
+                  <div key={d.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button className="link" style={{ textAlign: 'left', flex: 1 }} onClick={openDoc(d)}>{DOC_LABEL[d.kind]} · {d.filename} · {dmy(d.at)}</button>
+                    {isOwner && <button className="link" style={{ color: 'var(--red)' }} aria-label={`Supprimer ${d.filename}`} onClick={delDoc(d)}>Supprimer</button>}
+                  </div>))}
+              </div>)}
+          </div>);
+        })}
       </div>
+      <p className="note">Touchez une personne : nouveau code, invitation sur son téléphone (planning, heures, documents), documents déposés.</p>
       <div className="section-label">Ajouter un membre</div>
       <div className="group">
         <label className="row"><span style={{ width: 80 }}>Prénom</span><input value={prenom} onChange={(e) => setPrenom(e.target.value)} style={{ flex: 1, border: 'none', fontSize: 16, fontFamily: 'inherit' }} /></label>
@@ -231,6 +282,40 @@ function Equipe({ api, session }: { api: Api; session: Session }) {
       </div>
       <div className="error" role="alert">{error}</div>
       <button className="btn btn-primary" disabled={prenom.trim().length < 2} onClick={add}>Ajouter et générer le code</button>
+    </>
+  );
+}
+
+/** Envois automatiques : rapport du matin par e-mail (D31) et notifications sur cet iPhone. */
+function Envois({ api, session }: { api: Api; session: Session }) {
+  const [rs, setRs] = useState<ReportSettings | null>(null);
+  const [push, setPush] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => { api.reportSettings().then(setRs).catch(() => undefined); api.pushEnabled().then(setPush).catch(() => setPush(false)); }, [api]);
+  const togglePush = async () => {
+    setError(''); setBusy(true);
+    try { if (push) await api.pushUnsubscribe(); else await api.pushSubscribe(); setPush(!push); } catch (e) { setError((e as Error).message); }
+    setBusy(false);
+  };
+  const owner = session.droits.includes('reglages_gerant');
+  return (
+    <>
+      <div className="section-label">Envois automatiques</div>
+      <div className="group">
+        <label className="row"><span className="grow"><span className="main">Rapport de la veille par e-mail</span>
+          <span className="sub">PDF au Gérant et aux Managers, à imprimer pour le classeur</span></span>
+          {rs && <select aria-label="Heure d’envoi du rapport" value={rs.hour} disabled={!owner}
+            onChange={async (e) => { const h = Number(e.target.value); await api.setReportHour(h); setRs({ ...rs, hour: h }); }}
+            style={{ border: 'none', fontSize: 16, background: 'transparent' }}>
+            {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{h} h</option>)}</select>}</label>
+        {rs?.sent.slice(0, 3).map((x) => (
+          <div className="row" key={String(x.day)}><span className="grow"><span className="sub">Rapport du {dmy(x.day)} envoyé le {x.at.toLocaleString('fr-CH', { dateStyle: 'short', timeStyle: 'short' })} · {x.to} destinataire(s)</span></span></div>))}
+        <div className="row"><span className="grow"><span className="main">Notifications sur cet iPhone</span>
+          <span className="sub">Incident, température hors seuil, coupure de courant, oubli de dépointage, nettoyage en retard, rapport envoyé</span></span>
+          <button className="link" disabled={busy || push === null} onClick={togglePush}>{push ? 'Désactiver' : 'Activer'}</button></div>
+      </div>
+      <div className="error" role="alert">{error}</div>
     </>
   );
 }

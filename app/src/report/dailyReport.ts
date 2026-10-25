@@ -64,12 +64,8 @@ function table(headers: string[], rows: Row[], widths: (string | number)[], empt
   };
 }
 
-export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitions {
-  const day = d.date.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
-  const plural = (n: number, w: string) => `${n} ${w}${n > 1 ? 's' : ''}`;
-
-  // Chiffres du jour pour la synthèse et les bandeaux
+/** Chiffres du jour (synthèse, bandeau, score) : partagés par le PDF et l'e-mail du matin. */
+export function reportSummary(d: DayReport) {
   const rRed = d.readings.filter((r) => r.status === 'rouge').length;
   const oilBad = d.oil.filter((o) => o.aspect !== 'Normal' || (o.moment !== 'Soir' && /changer/i.test(o.actions))).length;
   const oilWarn = d.oil.filter((o) => o.moment === 'Soir' && /changer/i.test(o.actions)).length;
@@ -81,6 +77,24 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
   // Score interne (indicatif) : part des contrôles conformes, moins 10 points par non-conformité restée ouverte
   const totalControls = d.readings.length + d.oil.length + d.receptions.length + d.cleaning.length + d.cleaningMissed.length + d.attendance.length;
   const score = Math.max(0, Math.round(totalControls ? (100 * (totalControls - ecarts)) / totalControls : 100) - 10 * ncOpen);
+  return { rRed, oilBad, oilWarn, recBad, notApte, ncOpen, lotsOut, ecarts, score };
+}
+
+/** Phrase du bandeau : « Journée conforme », « Journée maîtrisée : n écarts… » ou « n non-conformités encore ouvertes ». */
+export function verdictText(d: DayReport) {
+  const { ncOpen, ecarts } = reportSummary(d);
+  const plural = (n: number, w: string) => `${n} ${w}${n > 1 ? 's' : ''}`;
+  return ncOpen ? `${plural(ncOpen, 'non-conformité')} encore ouverte${ncOpen > 1 ? 's' : ''}`
+    : ecarts ? `Journée maîtrisée : ${plural(ecarts, 'écart')} détecté${ecarts > 1 ? 's' : ''} et traité${ecarts > 1 ? 's' : ''}`
+    : 'Journée conforme : aucun écart';
+}
+
+export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitions {
+  const day = d.date.toLocaleDateString('fr-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+  const plural = (n: number, w: string) => `${n} ${w}${n > 1 ? 's' : ''}`;
+
+  const { rRed, oilBad, oilWarn, recBad, notApte, ncOpen, lotsOut, ecarts, score } = reportSummary(d);
 
   const synth: [string, string, 'ok' | 'warn' | 'bad', string][] = [
     ['Présence et prise de poste', plural(d.attendance.length, 'personne'), notApte ? 'bad' : 'ok', notApte ? `${notApte} non apte / non faite` : 'Tous aptes'],
@@ -91,9 +105,7 @@ export function buildDailyReport(d: DayReport, code: string): TDocumentDefinitio
     ['Préparations et lots', plural(d.lots.length, 'lot'), 'ok', lotsOut ? `${lotsOut} éliminé${lotsOut > 1 ? 's' : ''}` : 'Conforme'],
     ['Non-conformités', plural(d.ncs.length, 'incident'), ncOpen ? 'bad' : 'ok', ncOpen ? plural(ncOpen, 'ouverte') : d.ncs.length ? 'Toutes clôturées' : 'Aucune'],
   ];
-  const verdict = ncOpen ? { t: `${plural(ncOpen, 'non-conformité')} encore ouverte${ncOpen > 1 ? 's' : ''}`, c: C.bandBadText, bg: C.redBg }
-    : ecarts ? { t: `Journée maîtrisée : ${plural(ecarts, 'écart')} détecté${ecarts > 1 ? 's' : ''} et traité${ecarts > 1 ? 's' : ''}`, c: '#000000', bg: C.yellowBg }
-    : { t: 'Journée conforme : aucun écart', c: C.green, bg: C.greenBg };
+  const verdict = { t: verdictText(d), ...(ncOpen ? { c: C.bandBadText, bg: C.redBg } : ecarts ? { c: '#000000', bg: C.yellowBg } : { c: C.green, bg: C.greenBg }) };
 
   const thr = (label: string) => d.thresholds.find((t) => t.label.toLowerCase().startsWith(label.toLowerCase()))?.value ?? '';
 
