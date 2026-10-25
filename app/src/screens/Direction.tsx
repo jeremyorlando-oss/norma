@@ -44,7 +44,7 @@ export function Direction({ api, onDepannage, onLogout, onInspector, initialSess
       <Segmented label="Sections" value={tab} onChange={setTab}
         options={[{ value: 'jour', label: 'Jour' }, { value: 'nc', label: 'Incidents' }, { value: 'equipe', label: 'Équipe' }, { value: 'plus', label: 'Plus' }]} />
       {tab === 'jour' && <HoursAlerts api={api} onOpen={() => setTab('equipe')} />}
-      {tab === 'jour' && <Jour api={api} onEvents={() => setTab('plus')} />}
+      {tab === 'jour' && <Jour api={api} onEvents={() => setTab('plus')} onIncidents={() => setTab('nc')} />}
       {tab === 'nc' && <Incidents api={api} session={session} />}
       {tab === 'equipe' && <Equipe api={api} session={session} />}
       {tab === 'equipe' && session.droits.includes('heures_equipe') && <Heures api={api} session={session} />}
@@ -114,7 +114,49 @@ function Journal({ api }: { api: Api }) {
     <div className="group">{list.slice(0, 20).map((a, i) => <div className="row sub" key={i}>{a.at.toLocaleString('fr-CH')} · {a.who} · {a.action}</div>)}</div></>);
 }
 
-function Jour({ api, onEvents }: { api: Api; onEvents: () => void }) {
+type Reg = 'retard' | 'lots' | 'releves' | 'nettoyages' | 'receptions';
+const REG_TITLE: Record<Reg, string> = { retard: 'Nettoyages en retard', lots: 'Lots à jeter', releves: 'Relevés du jour', nettoyages: 'Nettoyages faits aujourd’hui', receptions: 'Réceptions du jour' };
+
+/** Registre détaillé ouvert depuis une tuile du jour. */
+function Registre({ api, kind, onBack }: { api: Api; kind: Reg; onBack: () => void }) {
+  const [rows, setRows] = useState<{ main: string; sub: string; bad?: boolean }[] | null>(null);
+  useEffect(() => {
+    const now = new Date();
+    (async () => {
+      if (kind === 'retard') {
+        const t = await api.cleaningTasks(now);
+        return t.filter((x) => x.dueAt && x.dueAt < now).map((x) => ({ main: x.name, bad: true,
+          sub: `À faire depuis ${hm(x.dueAt!)} (${Math.round((now.getTime() - x.dueAt!.getTime()) / 60000)} min de retard)${x.lastDone ? ` · dernier : ${hm(x.lastDone.at)} par ${x.lastDone.by}` : ' · pas encore fait aujourd’hui'}${x.product ? ` · ${x.product}` : ''}` }));
+      }
+      if (kind === 'lots') {
+        const l = await api.lots(now);
+        return l.filter((x) => x.status === 'a_jeter').map((x) => ({ main: `${x.recipeName} · ${x.lotCode}`, bad: true,
+          sub: `Limite dépassée le ${x.useBy.toLocaleDateString('fr-CH')} · produit le ${x.producedOn.toLocaleDateString('fr-CH')} par ${x.by}` }));
+      }
+      const r = await api.dayReport(now);
+      if (kind === 'releves') return r.readings.map((x) => ({ main: `${x.time} · ${x.equipment} · ${x.value}`, sub: `${x.by}${x.source ? ` · ${x.source}` : ''}`, bad: x.status === 'rouge' }));
+      if (kind === 'nettoyages') return r.cleaning.map((x) => ({ main: `${x.time} · ${x.item}`, sub: [x.by, x.product, x.note].filter(Boolean).join(' · ') }));
+      return r.receptions.map((x) => ({ main: `${x.time} · ${x.product} (${x.supplier})`, bad: x.result !== 'Acceptée',
+        sub: `${x.result} · lot ${x.lot || '—'} · DLC ${x.dlc || '—'} · ${x.temp} · ${x.by}${x.photo ? ' · photo du bon' : ''}` }));
+    })().then(setRows).catch(() => setRows([]));
+  }, [api, kind]);
+  return (
+    <>
+      <button className="link" style={{ alignSelf: 'flex-start', padding: 0 }} onClick={onBack}>‹ Aujourd’hui</button>
+      <div className="section-label">{REG_TITLE[kind]}</div>
+      <div className="group">
+        {rows === null && <div className="row sub">…</div>}
+        {rows?.length === 0 && <div className="row sub">Rien à afficher.</div>}
+        {rows?.map((x, i) => (
+          <div className="row" key={i}><span className="grow"><span className="main" style={{ color: x.bad ? 'var(--red)' : undefined }}>{x.main}</span><span className="sub">{x.sub}</span></span></div>))}
+      </div>
+      {(kind === 'releves' || kind === 'nettoyages' || kind === 'receptions') && <p className="note">Registre complet du jour : Plus › Rapport du jour (PDF).</p>}
+    </>
+  );
+}
+
+function Jour({ api, onEvents, onIncidents }: { api: Api; onEvents: () => void; onIncidents: () => void }) {
+  const [reg, setReg] = useState<Reg | null>(null);
   const [s, setS] = useState<DayStats | null>(null);
   const [ev, setEv] = useState<EventInfo | null | undefined>(undefined);
   const [team, setTeam] = useState<Member[]>([]);
@@ -124,16 +166,19 @@ function Jour({ api, onEvents }: { api: Api; onEvents: () => void }) {
     api.nonconformities().then((n) => setOpen(n.filter((x) => !x.closed).length));
   }, [api]);
   if (!s) return null;
-  const tile = (n: number, l: string, bad = false) => (
-    <div className="group" style={{ padding: 12 }}><div style={{ fontSize: 28, fontWeight: 700, color: bad && n > 0 ? 'var(--red)' : '#000' }}>{n}</div><div className="sub" style={{ fontSize: 13, color: 'var(--text-2)' }}>{l}</div></div>);
+  if (reg) return <Registre api={api} kind={reg} onBack={() => setReg(null)} />;
+  const tile = (n: number, l: string, go: () => void, bad = false) => (
+    <button className="group" onClick={go} aria-label={`${n} ${l} : ouvrir le registre`} style={{ padding: 12, border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline' }}><span style={{ fontSize: 28, fontWeight: 700, color: bad && n > 0 ? 'var(--red)' : '#000', flex: 1 }}>{n}</span><span style={{ color: '#C7C7CC' }}>›</span></div>
+      <div className="sub" style={{ fontSize: 13, color: 'var(--text-2)' }}>{l}</div></button>);
   const present = team.filter((m) => m.clockedIn);
   return (
     <>
       {ev !== undefined && <button className="group row" style={{ width: '100%', border: 'none', textAlign: 'left', fontSize: 16 }} onClick={onEvents}>
         <span className="grow"><span className="main">{ev ? ev.name : 'Aucun événement en cours'}</span><span className="sub">{ev ? ev.place : 'Créer ou ouvrir un événement'}</span></span>›</button>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
-        {tile(open, 'Incidents ouverts', true)}{tile(s.nettoyagesEnRetard, 'Nettoyages en retard', true)}{tile(s.lotsAJeter, 'Lots à jeter', true)}
-        {tile(s.releves, 'Relevés')}{tile(s.nettoyagesFaits, 'Nettoyages faits')}{tile(s.receptions, 'Réceptions')}
+        {tile(open, 'Incidents ouverts', onIncidents, true)}{tile(s.nettoyagesEnRetard, 'Nettoyages en retard', () => setReg('retard'), true)}{tile(s.lotsAJeter, 'Lots à jeter', () => setReg('lots'), true)}
+        {tile(s.releves, 'Relevés', () => setReg('releves'))}{tile(s.nettoyagesFaits, 'Nettoyages faits', () => setReg('nettoyages'))}{tile(s.receptions, 'Réceptions', () => setReg('receptions'))}
       </div>
       <div className="section-label">Présents · {present.length}</div>
       <div className="group">
