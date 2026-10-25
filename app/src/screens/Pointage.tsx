@@ -39,7 +39,8 @@ export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; 
   const level = worstAlert(alerts.map((a) => a.alert));
   return (
     <div className="full-bg" style={{ background: BG[level] }}>
-      <div className="screen" style={{ alignItems: 'center', gap: 14 }}>
+      <div className="screen pointage">
+        <div className="pt-left">
         <div style={{ textAlign: 'center', paddingTop: 16 }}>
           {/* Icône discrète style « verre liquide » : translucide, floutée, qui laisse passer la couleur de l'écran */}
           <div aria-label="NORMA" role="img" style={{ width: 40, height: 40, margin: '0 auto 8px', borderRadius: 11, display: 'grid', placeItems: 'center',
@@ -73,18 +74,21 @@ export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; 
           </div>
         )}
 
-        <div style={{ textAlign: 'center', width: '100%' }}><div style={{ fontSize: 17, fontWeight: 600 }}>Tapez votre code</div><div style={{ fontSize: 13, opacity: 0.7, marginTop: 2 }}>Escriba su código · Enter your code</div></div>
+        </div>
+        <div className="pt-right">
+        <div style={{ textAlign: 'center', width: '100%' }}><div style={{ fontSize: 'clamp(17px, 2.8vmin, 30px)', fontWeight: 600 }}>Tapez votre code</div><div style={{ fontSize: 'clamp(13px, 1.9vmin, 20px)', opacity: 0.7, marginTop: 2 }}>Escriba su código · Enter your code</div></div>
         <div className={`dots ${error ? 'shake' : ''}`} aria-label={`${code.length} chiffres saisis`}>
           {[0, 1, 2, 3].map((i) => <span key={i} className={`dot ${i < code.length ? 'on' : ''}`} />)}
         </div>
         <div className="error" role="alert">{error}</div>
-        <div className="keypad">
+        <div className="keypad-zone"><div className="keypad">
           {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((k, i) =>
             k === '' ? <span key={i} /> :
               <button key={i} className={`key ${k === '⌫' ? 'ghost' : ''}`} aria-label={k === '⌫' ? 'Effacer' : k} onClick={() => press(k)}>{k}</button>)}
-        </div>
+        </div></div>
         {demoHint && <div className="demo-banner">{demoHint}</div>}
         {demoHint && onDirection && <button className="link" style={{ fontSize: 13 }} onClick={onDirection}>{t('Démo : ouvrir l’espace Direction (iPhone)')}</button>}
+        </div>
       </div>
     </div>
   );

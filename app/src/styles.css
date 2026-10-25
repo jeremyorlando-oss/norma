@@ -40,13 +40,14 @@ button:disabled { opacity: .45; cursor: default; }
 .error { color: var(--red); font-weight: 600; text-align: center; min-height: 22px; }
 
 /* Pointage */
-.clock { font-size: 56px; font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: -1px; text-align: center; }
-.dots { display: flex; gap: 20px; justify-content: center; }
-.dot { width: 14px; height: 14px; border-radius: 7px; border: 1.5px solid #000; }
+.clock { font-size: clamp(56px, 15vmin, 190px); line-height: 1.05; font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: -1px; text-align: center; }
+.dots { display: flex; gap: clamp(20px, 3vmin, 34px); justify-content: center; }
+.dot { width: clamp(14px, 2.2vmin, 24px); height: clamp(14px, 2.2vmin, 24px); border-radius: 50%; border: 1.5px solid #000; }
 .dot.on { background: #000; }
-.keypad { display: grid; grid-template-columns: repeat(3, 76px); gap: 14px 28px; justify-content: center; }
-.key { width: 76px; height: 76px; border-radius: 38px; border: none; font-size: 30px; background: rgba(255,255,255,.85); color: #000; }
-.key.ghost { background: transparent; font-size: 24px; }
+/* Écran du code : heure et clavier aussi grands que la tablette le permet (portrait ou paysage) */
+.keypad { --k: clamp(64px, min(21.5cqh, 20vw), 150px); display: grid; grid-template-columns: repeat(3, var(--k)); gap: calc(var(--k) * .17) calc(var(--k) * .36); justify-content: center; }
+.key { width: var(--k); height: var(--k); border-radius: 50%; border: none; font-size: calc(var(--k) * .4); background: rgba(255,255,255,.85); color: #000; }
+.key.ghost { background: transparent; font-size: calc(var(--k) * .32); }
 .shake { animation: shake .35s; }
 @keyframes shake { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
 
@@ -83,4 +84,18 @@ button:disabled { opacity: .45; cursor: default; }
   html, body { background: #fff !important; }
   #root { display: none !important; }
   .print-only { display: flex !important; border: none !important; padding: 0 !important; zoom: 0.68; }
+}
+
+.screen.pointage { max-width: 900px; height: 100dvh; min-height: 0; overflow-y: auto; align-items: center; gap: 14px; }
+.pt-left, .pt-right { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.pt-left > *, .pt-right > * { flex-shrink: 0; }
+.pt-right { flex: 1; min-height: 0; }
+/* Le clavier prend toute la place restante, même quand des alertes s'affichent au-dessus */
+.keypad-zone { flex: 1 1 0; min-height: 330px; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
+/* Tablette en paysage : heure et alertes à gauche, clavier à droite sur toute la hauteur */
+@media (orientation: landscape) and (min-width: 900px) {
+  .screen.pointage { max-width: none; flex-direction: row; align-items: stretch; gap: 40px; padding-left: 32px; padding-right: 32px; }
+  .pt-left { flex: 1; justify-content: center; overflow-y: auto; }
+  .pt-right { flex: 1; justify-content: center; }
+  .pt-left .clock { font-size: clamp(56px, 13vw, 200px); }
 }
