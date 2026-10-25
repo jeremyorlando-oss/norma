@@ -345,7 +345,7 @@ function Envois({ api, session }: { api: Api; session: Session }) {
 function RhSection({ api, member }: { api: Api; member: Member }) {
   const [list, setList] = useState<HrDoc[]>([]);
   const [kind, setKind] = useState<HrKind>('fiche_salaire');
-  const [month, setMonth] = useState(() => { const d = new Date(); if (d.getDate() < 20) d.setMonth(d.getMonth() - 1);   // fiche du mois en cours dès le 20 return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; });
+  const [month, setMonth] = useState(() => { const d = new Date(); if (d.getDate() < 20) d.setMonth(d.getMonth() - 1); /* fiche du mois en cours dès le 20 */ return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; });
   const [title, setTitle] = useState('');
   const [sign, setSign] = useState(true);
   const [file, setFile] = useState<File | null>(null);
