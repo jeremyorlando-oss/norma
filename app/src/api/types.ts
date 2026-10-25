@@ -1,3 +1,4 @@
+import type { HrDoc, HrKind } from '../rh/rh';
 import type { Alert, Right, Status } from '../domain/rules';
 import type { DayReport } from '../report/dailyReport';
 
@@ -130,6 +131,12 @@ export interface Api {
   revokeAccess(memberId: string): Promise<void>;
   memberDocs(memberId: string): Promise<MemberDoc[]>;
   memberProfile(memberId: string): Promise<MemberProfile>;
+  // Contrats et fiches de salaire (V1.2, Gérant seul)
+  rhList(memberId: string): Promise<HrDoc[]>;
+  rhUpload(memberId: string, kind: HrKind, title: string, period: string | null, file: File, sign: boolean): Promise<void>;
+  rhDelete(doc: HrDoc): Promise<void>;
+  rhUrl(path: string): Promise<string>;
+  rhCertificate(doc: HrDoc, who: string): Promise<void>;
   docUrl(path: string): Promise<string>;
   deleteDoc(doc: MemberDoc): Promise<void>;
   // Envois automatiques : rapport du matin par e-mail, notifications iPhone

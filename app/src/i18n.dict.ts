@@ -359,6 +359,22 @@ const ROWS: [string, string, string][] = [
   ['Déposez aussi dans Documents : pièce d’identité ou permis, carte AVS, attestation bancaire, CV, certificats.',
    'Suba también en Documentos: documento de identidad o permiso, tarjeta AVS, certificado bancario, CV, certificados.',
    'Also upload in Documents: ID or permit, AVS card, bank statement, CV, references.'],
+  // — Contrats et salaires
+  ['{n} document(s) à signer', '{n} documento(s) por firmar', '{n} document(s) to sign'], ['De l’employeur', 'Del empleador', 'From the employer'],
+  ['À lire puis à signer', 'Para leer y luego firmar', 'Read, then sign'], ['1. Ouvrir et lire le document', '1. Abrir y leer el documento', '1. Open and read the document'],
+  ['2. Signer', '2. Firmar', '2. Sign'], ['signé le {d}', 'firmado el {d}', 'signed on {d}'], ['nouveau', 'nuevo', 'new'],
+  ['Document introuvable', 'Documento no encontrado', 'Document not found'], ['Signer : {x}', 'Firmar: {x}', 'Sign: {x}'],
+  ['J’ai lu ce document en entier et je l’accepte.', 'He leído este documento entero y lo acepto.', 'I have read this whole document and I accept it.'],
+  ['Nom complet', 'Nombre completo', 'Full name'], ['Signez avec le doigt dans le cadre :', 'Firme con el dedo en el recuadro:', 'Sign with your finger in the box:'],
+  ['Zone de signature', 'Zona de firma', 'Signature area'], ['Effacer la signature', 'Borrar la firma', 'Clear signature'],
+  ['Signer le document', 'Firmar el documento', 'Sign the document'],
+  ['Votre signature, la date, l’heure et l’empreinte du fichier sont enregistrées comme preuve de votre accord.', 'Su firma, la fecha, la hora y la huella del archivo se guardan como prueba de su acuerdo.', 'Your signature, the date, the time and the file fingerprint are saved as proof of your agreement.'],
+  ['Contrat de travail', 'Contrato de trabajo', 'Employment contract'], ['Avenant au contrat', 'Anexo al contrato', 'Contract amendment'],
+  ['Fiche de salaire', 'Nómina', 'Payslip'], ['Certificat de salaire (annuel)', 'Certificado de salario (anual)', 'Annual salary certificate'],
+  ['Attestation', 'Certificado', 'Certificate'],
+  ['Ouvrez et lisez le document avant de signer', 'Abra y lea el documento antes de firmar', 'Open and read the document before signing'],
+  ['Le fichier a changé : rouvrez le document avant de signer', 'El archivo ha cambiado: vuelva a abrirlo antes de firmar', 'The file has changed: reopen the document before signing'],
+  ['Écrivez votre nom complet', 'Escriba su nombre completo', 'Write your full name'], ['Document déjà signé', 'Documento ya firmado', 'Document already signed'],
 ];
 
 // Textes non traduits volontairement : affichette client trilingue, origine des viandes (déjà trilingue).

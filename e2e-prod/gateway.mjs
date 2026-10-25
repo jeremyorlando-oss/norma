@@ -6,9 +6,10 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 const SECRET = 'norma-e2e-secret-norma-e2e-secret-0123456789';
-const USERS = { 'tablette@test.ch': 'aaaaaaaa-0000-0000-0000-000000000001', 'orlando@test.ch': 'aaaaaaaa-0000-0000-0000-000000000002' };
+const USERS = { 'tablette@test.ch': 'aaaaaaaa-0000-0000-0000-000000000001', 'orlando@test.ch': 'aaaaaaaa-0000-0000-0000-000000000002', 'esteban@test.ch': 'aaaaaaaa-0000-0000-0000-000000000003' };
 const PASSWORDS = {};   // comptes créés par la fonction « invitation » (API admin)
 const sql = (q) => execFileSync('su', ['postgres', '-c', `psql -q -t -d normae2e -c "${q}"`]).toString();
+const FILES = new Map();   // stockage en mémoire (Supabase Storage)
 const FUNCTIONS = { invitation: 8768, 'rapport-soir': 8769, notifications: 8770 };   // fonctions serveur lancées avec Deno (functions.mjs)
 const DIST = path.resolve(process.argv[2]);
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -57,10 +58,39 @@ http.createServer(async (req, res) => {
     p.on('error', (e) => { res.writeHead(502, cors); res.end(String(e)); });
     return p.end(b);
   }
-  if (url.pathname.startsWith('/storage/v1/object/sign/')) { await body(req); res.writeHead(200, { 'content-type': 'application/json', ...cors }); return res.end(JSON.stringify({ signedURL: '/document-signe' })); }
+  if (url.pathname.startsWith('/storage/v1/object/sign/') && req.method === 'POST') {
+    await body(req); res.writeHead(200, { 'content-type': 'application/json', ...cors });
+    return res.end(JSON.stringify({ signedURL: '/object/sign/' + url.pathname.slice('/storage/v1/object/sign/'.length) + '?token=test' }));
+  }
+  if (url.pathname.startsWith('/storage/v1/object/') && req.method === 'GET') {
+    const key = decodeURIComponent(url.pathname.replace(/^\/storage\/v1\/object\/(authenticated\/|public\/|sign\/)?/, ''));
+    const f = FILES.get(key);
+    if (!f) { res.writeHead(404, cors); return res.end('{"error":"not found"}'); }
+    res.writeHead(200, { 'content-type': f.type, ...cors }); return res.end(f.data);
+  }
   if (url.pathname === '/auth/v1/logout') { res.writeHead(204, cors); return res.end(); }
   if (url.pathname === '/auth/v1/user') { res.writeHead(200, { 'content-type': 'application/json', ...cors }); return res.end('{}'); }
-  if (url.pathname.startsWith('/storage/v1/object/')) { await body(req); res.writeHead(200, { 'content-type': 'application/json', ...cors }); return res.end(JSON.stringify({ Key: url.pathname })); }
+  if (url.pathname.startsWith('/storage/v1/object/')) {
+    const data = await body(req);
+    const key = decodeURIComponent(url.pathname.slice('/storage/v1/object/'.length));
+    if (req.method === 'POST' || req.method === 'PUT') {
+      let file = data, type = req.headers['content-type'] ?? 'application/octet-stream';
+      const m = /multipart\/form-data; boundary=(.+)$/.exec(type);
+      if (m) {   // storage-js envoie un Blob en multipart : on garde la partie « fichier »
+        const sep = Buffer.from('--' + m[1]);
+        let i = data.indexOf(sep);
+        while (i >= 0) {
+          const j = data.indexOf(sep, i + sep.length); if (j < 0) break;
+          const part = data.subarray(i + sep.length + 2, j - 2); const h = part.indexOf('\r\n\r\n');
+          const head = part.subarray(0, h).toString();
+          if (/filename=/.test(head) || /name=""/.test(head)) { file = part.subarray(h + 4); type = (/Content-Type: (.+)/i.exec(head)?.[1] ?? 'application/octet-stream').trim(); }
+          i = j;
+        }
+      }
+      if (key.includes('/')) FILES.set(key, { data: file, type });
+    } else if (req.method === 'DELETE') { try { for (const p of JSON.parse(data.toString()).prefixes ?? []) FILES.delete(key + '/' + p); } catch { /* */ } }
+    res.writeHead(200, { 'content-type': 'application/json', ...cors }); return res.end(JSON.stringify({ Key: url.pathname }));
+  }
   let f = path.join(DIST, url.pathname === '/' ? 'index.html' : url.pathname);
   if (!f.startsWith(DIST) || !fs.existsSync(f)) f = path.join(DIST, 'index.html');
   const type = f.endsWith('.js') ? 'text/javascript' : f.endsWith('.css') ? 'text/css' : 'text/html';

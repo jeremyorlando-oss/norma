@@ -1,12 +1,13 @@
 // Espace Employé (V1.1, D30) : sur son propre téléphone, chacun voit son planning, ses heures, ses formations,
 // et dépose ses documents. Aucune donnée des autres ni de l'hygiène du stand n'est visible.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { LangProvider, LOCALE, useLang, useT, type Lang } from '../i18n';
 import { Segmented } from '../components/Controls';
 import { breakMinutes, fmtMin, workedMinutes, type Span } from '../domain/hours';
 import { CONTROLLER, privacyNotice } from '../domain/privacy';
 import { LOGO_ICON_URL } from '../brand/logo';
+import { HR_LABEL, sha256Hex, type HrDoc } from '../rh/rh';
 
 type J = Record<string, any>;   // eslint-disable-line @typescript-eslint/no-explicit-any
 type Tab = 'planning' | 'heures' | 'documents' | 'profil';
@@ -33,15 +34,19 @@ export function Employe({ sb, signOut, onBack }: { sb: SupabaseClient; signOut: 
 function Espace({ sb, me, reload, signOut, onBack }: { sb: SupabaseClient; me: J; reload: () => void; signOut: () => void; onBack?: () => void }) {
   const t = useT();
   const [tab, setTab] = useState<Tab>('planning');
+  const [toSign, setToSign] = useState(0);
+  useEffect(() => { sb.schema('norma').rpc('rpc_mes_rh').then(({ data }) => setToSign(((data ?? []) as J[]).filter((d) => d.requiresSignature && !d.signedAt).length)); }, [sb, tab]);
   const titles: Record<Tab, string> = { planning: t('Mon planning'), heures: t('Mes heures'), documents: t('Mes documents'), profil: t('Mon profil') };
   return (
     <div className="screen">
       {onBack && <button className="link" style={{ alignSelf: 'flex-start', padding: 0 }} onClick={onBack}>‹ Direction</button>}
       <div><div className="eyebrow">{me.prenom} · {t(me.poste)}</div><h1 className="h1">{titles[tab]}</h1></div>
       <Segmented label={t('Sections')} value={tab} onChange={setTab}
-        options={[{ value: 'planning', label: t('Planning') }, { value: 'heures', label: t('Heures') }, { value: 'documents', label: t('Documents') }, { value: 'profil', label: t('Profil') }]} />
+        options={[{ value: 'planning', label: t('Planning') }, { value: 'heures', label: t('Heures') }, { value: 'documents', label: toSign ? `${t('Documents')} (${toSign})` : t('Documents') }, { value: 'profil', label: t('Profil') }]} />
       {tab === 'planning' && <Planning sb={sb} />}
       {tab === 'heures' && <Heures sb={sb} />}
+      {tab === 'planning' && toSign > 0 && <button className="btn btn-primary" onClick={() => setTab('documents')}>{t('{n} document(s) à signer', { n: toSign })}</button>}
+      {tab === 'documents' && <DeLEmployeur sb={sb} me={me} onChange={() => setTab('documents')} />}
       {tab === 'documents' && <Documents sb={sb} me={me} />}
       {tab === 'profil' && <Profil sb={sb} me={me} reload={reload} signOut={signOut} />}
     </div>
@@ -328,5 +333,103 @@ function MesInfos({ sb }: { sb: SupabaseClient }) {
       <p className="note">{t('Ces informations servent au contrat, aux salaires et aux assurances sociales. Visibles seulement par vous et la Direction ; données de salaire (AVS, IBAN, date de naissance, état civil, enfants, permis) : Gérant seul.')}</p>
       <p className="note">{t('Déposez aussi dans Documents : pièce d’identité ou permis, carte AVS, attestation bancaire, CV, certificats.')}</p>
     </>
+  );
+}
+
+/** Documents envoyés par l'employeur : contrats à signer, fiches et certificats de salaire. */
+function DeLEmployeur({ sb, me }: { sb: SupabaseClient; me: J; onChange: () => void }) {
+  const t = useT(); const loc = LOCALE[useLang()];
+  const db = useMemo(() => sb.schema('norma'), [sb]);
+  const [list, setList] = useState<HrDoc[]>([]);
+  const [signing, setSigning] = useState<HrDoc | null>(null);
+  const [error, setError] = useState('');
+  const load = useCallback(() => { db.rpc('rpc_mes_rh').then(({ data }) => setList((data ?? []) as HrDoc[])); }, [db]);
+  useEffect(() => { load(); }, [load]);
+  const open = async (d: HrDoc) => {
+    setError('');
+    const { data } = await sb.storage.from('documents-rh').createSignedUrl(d.path, 300);
+    if (!data) return setError(t('Document introuvable'));
+    window.open(data.signedUrl, '_blank');
+    if (!d.seenAt) { await db.rpc('rpc_rh_vu', { p_id: d.id }); load(); }
+  };
+  if (signing) return <Signer sb={sb} me={me} doc={signing} onDone={() => { setSigning(null); load(); }} />;
+  if (!list.length) return null;
+  const pending = list.filter((d) => d.requiresSignature && !d.signedAt);
+  const others = list.filter((d) => !(d.requiresSignature && !d.signedAt));
+  return (
+    <>
+      <div className="section-label">{t('De l’employeur')}</div>
+      {pending.map((d) => (
+        <div key={d.id} className="group" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8, border: '2px solid var(--blue)' }}>
+          <b>{d.title}</b>
+          <span className="sub">{t('À lire puis à signer')}</span>
+          <button className="btn" onClick={() => open(d)}>{t('1. Ouvrir et lire le document')}</button>
+          <button className="btn btn-primary" disabled={!d.seenAt} onClick={() => setSigning(d)}>{t('2. Signer')}</button>
+        </div>))}
+      {others.length > 0 && <div className="group">
+        {others.map((d) => (
+          <button key={d.id} className="row" style={{ width: '100%', border: 'none', background: '#fff', fontSize: 17, textAlign: 'left' }} onClick={() => open(d)}>
+            <span className="grow"><span className="main">{d.title}</span>
+              <span className="sub">{t(HR_LABEL[d.kind])}{d.signedAt ? ` · ${t('signé le {d}', { d: new Date(d.signedAt).toLocaleDateString(loc) })}` : d.seenAt ? '' : ` · ${t('nouveau')}`}</span></span>›</button>))}
+      </div>}
+      <div className="error" role="alert">{error}</div>
+    </>
+  );
+}
+
+/** Signature d'un contrat : confirmation de lecture, nom complet, signature tracée au doigt. */
+function Signer({ sb, me, doc, onDone }: { sb: SupabaseClient; me: J; doc: HrDoc; onDone: () => void }) {
+  const t = useT();
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [drawn, setDrawn] = useState(false);
+  const [name, setName] = useState(`${me.prenom} ${me.nom}`.trim());
+  const [ok, setOk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const c = canvas.current!; const r = c.getBoundingClientRect(); const dpr = window.devicePixelRatio || 1;
+    c.width = r.width * dpr; c.height = r.height * dpr;
+    const g = c.getContext('2d')!; g.scale(dpr, dpr); g.lineWidth = 2.5; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#0B1F4D';
+    let down = false;
+    const pos = (e: PointerEvent) => { const b = c.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top] as const; };
+    const start = (e: PointerEvent) => { down = true; c.setPointerCapture(e.pointerId); const [x, y] = pos(e); g.beginPath(); g.moveTo(x, y); };
+    const move = (e: PointerEvent) => { if (!down) return; const [x, y] = pos(e); g.lineTo(x, y); g.stroke(); setDrawn(true); };
+    const end = () => { down = false; };
+    c.addEventListener('pointerdown', start); c.addEventListener('pointermove', move); c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
+    return () => { c.removeEventListener('pointerdown', start); c.removeEventListener('pointermove', move); c.removeEventListener('pointerup', end); c.removeEventListener('pointercancel', end); };
+  }, []);
+  const clear = () => { const c = canvas.current!; c.getContext('2d')!.clearRect(0, 0, c.width, c.height); setDrawn(false); };
+  const submit = async () => {
+    setBusy(true); setError('');
+    try {
+      const file = await sb.storage.from('documents-rh').download(doc.path);
+      if (!file.data) throw new Error(t('Document introuvable'));
+      const hash = await sha256Hex(file.data);
+      const png = await new Promise<Blob>((res) => canvas.current!.toBlob((b) => res(b!), 'image/png'));
+      const sigPath = `${me.companyId}/${me.memberId}/signature/${crypto.randomUUID()}.png`;
+      const up = await sb.storage.from('documents-rh').upload(sigPath, png, { contentType: 'image/png' });
+      if (up.error) throw new Error(up.error.message);
+      const device = `${navigator.platform || ''} · ${navigator.userAgent.slice(0, 160)}`;
+      const { error } = await sb.schema('norma').rpc('rpc_rh_signer', { p_id: doc.id, p_name: name, p_signature_path: sigPath, p_sha256: hash, p_device: device });
+      if (error) throw new Error(t(error.message));
+      onDone();
+    } catch (e) { setError((e as Error).message); }
+    setBusy(false);
+  };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="section-label">{t('Signer : {x}', { x: doc.title })}</div>
+      <label className="row group" style={{ gap: 10 }}><input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} style={{ width: 22, height: 22 }} />
+        <span>{t('J’ai lu ce document en entier et je l’accepte.')}</span></label>
+      <div className="group"><label className="row"><span style={{ width: 110 }}>{t('Nom complet')}</span>
+        <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" style={{ flex: 1, minWidth: 0, border: 'none', fontSize: 16, fontFamily: 'inherit' }} /></label></div>
+      <div className="sub">{t('Signez avec le doigt dans le cadre :')}</div>
+      <canvas ref={canvas} aria-label={t('Zone de signature')} style={{ width: '100%', height: 180, background: '#fff', borderRadius: 12, border: '1px dashed #8E8E93', touchAction: 'none' }} />
+      <button className="link" style={{ alignSelf: 'flex-start' }} onClick={clear}>{t('Effacer la signature')}</button>
+      <div className="error" role="alert">{error}</div>
+      <button className="btn btn-primary" disabled={!ok || !drawn || name.trim().length < 3 || busy} onClick={submit}>{busy ? '…' : t('Signer le document')}</button>
+      <button className="btn" onClick={onDone}>{t('Annuler')}</button>
+      <p className="note">{t('Votre signature, la date, l’heure et l’empreinte du fichier sont enregistrées comme preuve de votre accord.')}</p>
+    </div>
   );
 }

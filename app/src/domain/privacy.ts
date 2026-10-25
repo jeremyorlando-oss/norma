@@ -1,7 +1,7 @@
 // Notice d'information aux collaborateurs (LPD art. 19). Base sérieuse, non validée par un juriste.
 // Sources : LPD (RS 235.1) art. 19 et 25 ; LTr art. 46 ; OLT 1 art. 73 (conservation ≥ 5 ans) ; ODAlOUs ; BPHR.
 
-export const PRIVACY_VERSION = '2026-10-25b';
+export const PRIVACY_VERSION = '2026-10-25c';
 type L = 'fr' | 'es' | 'en';
 export interface Controller { name: string; responsable: string; address: string; email: string; phone: string }
 export interface NoticeSection { title: string; rows?: [string, string, string][]; text?: string }
@@ -41,6 +41,7 @@ const ROWS: Record<L, [string, string, string][]> = {
     ['Vos actions signées : relevés, nettoyages, réceptions, lots, incidents', 'Autocontrôle HACCP obligatoire (ODAlOUs)', '2 ans (règle interne)'],
     ['Compte sur votre téléphone (si vous êtes invité) : e-mail, mot de passe chiffré', 'Accès à votre espace Employé (planning, heures, documents)', 'Pendant l’emploi'],
     ['Dossier du personnel que vous remplissez : nom complet, date de naissance, nationalité et permis, adresse, téléphone, e-mail, n° AVS, IBAN, état civil, enfants, personne à prévenir', 'Contrat, salaire, assurances sociales (AVS), impôt à la source, urgence', 'Pendant l’emploi, puis selon les délais légaux (salaires : 10 ans, CO art. 958f)'],
+    ['Contrats et fiches de salaire déposés par l’employeur ; votre signature dans l’app (nom, tracé, date et heure, empreinte du fichier, appareil)', 'Contrat de travail, décompte de salaire (CO art. 323b), preuve de votre accord', 'Pendant l’emploi, puis 10 ans (CO art. 958f)'],
     ['Documents que vous déposez : pièce d’identité ou permis, carte AVS, coordonnées bancaires, certificat médical, CV, certificats', 'Contrat de travail, salaire, assurances sociales, absences', 'Pendant l’emploi, puis supprimés sauf obligation légale de les garder (règle interne)'],
   ],
   es: [
@@ -50,6 +51,7 @@ const ROWS: Record<L, [string, string, string][]> = {
     ['Sus acciones firmadas: registros, limpiezas, recepciones, lotes, incidentes', 'Autocontrol HACCP obligatorio (ODAlOUs)', '2 años (regla interna)'],
     ['Cuenta en su teléfono (si le invitan): correo, contraseña cifrada', 'Acceso a su espacio de Empleado (planificación, horas, documentos)', 'Durante el empleo'],
     ['Expediente de personal que usted rellena: nombre completo, fecha de nacimiento, nacionalidad y permiso, dirección, teléfono, correo, n.º AVS, IBAN, estado civil, hijos, persona de contacto', 'Contrato, salario, seguros sociales (AVS), impuesto en la fuente, urgencias', 'Durante el empleo y después según los plazos legales (salarios: 10 años, CO art. 958f)'],
+    ['Contratos y nóminas que deposita el empleador; su firma en la app (nombre, trazo, fecha y hora, huella del archivo, dispositivo)', 'Contrato de trabajo, liquidación de salario (CO art. 323b), prueba de su acuerdo', 'Durante el empleo y después 10 años (CO art. 958f)'],
     ['Documentos que usted sube: documento de identidad o permiso, tarjeta AVS, datos bancarios, certificado médico, CV, certificados', 'Contrato de trabajo, salario, seguros sociales, ausencias', 'Durante el empleo; después se borran salvo obligación legal de conservarlos (regla interna)'],
   ],
   en: [
@@ -59,6 +61,7 @@ const ROWS: Record<L, [string, string, string][]> = {
     ['Your signed actions: readings, cleaning, deliveries, batches, incidents', 'Mandatory HACCP self-checks (ODAlOUs)', '2 years (internal rule)'],
     ['Account on your phone (if invited): e-mail, encrypted password', 'Access to your Employee space (schedule, hours, documents)', 'During employment'],
     ['Staff file you fill in: full name, date of birth, nationality and permit, address, phone, e-mail, AVS no., IBAN, marital status, children, emergency contact', 'Contract, pay, social insurance (AVS), withholding tax, emergencies', 'During employment, then per legal retention periods (pay records: 10 years, CO art. 958f)'],
+    ['Contracts and payslips uploaded by the employer; your signature in the app (name, drawing, date and time, file fingerprint, device)', 'Employment contract, pay statement (CO art. 323b), proof of your agreement', 'During employment, then 10 years (CO art. 958f)'],
     ['Documents you upload: ID or residence permit, AVS card, bank details, medical certificate, CV, references', 'Employment contract, pay, social insurance, absences', 'During employment, then deleted unless the law requires keeping them (internal rule)'],
   ],
 };

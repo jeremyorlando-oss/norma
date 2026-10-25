@@ -4,6 +4,7 @@ import { Segmented } from '../components/Controls';
 import { Evenements } from './Evenements';
 import { Reglages } from './Reglages';
 import { Heures, HoursAlerts } from './Heures';
+import { defaultTitle, HR_KINDS, HR_LABEL, signable, type HrDoc, type HrKind } from '../rh/rh';
 
 type Tab = 'jour' | 'nc' | 'equipe' | 'plus';
 const STEP_LABEL: Record<NcStep['step'], string> = { mesure_immediate: 'Mesure immédiate', evaluation_risque: 'Évaluation du risque',
@@ -279,6 +280,7 @@ function Equipe({ api, session }: { api: Api; session: Session }) {
                       <br />IBAN {fiche.iban ? fiche.iban.replace(/(.{4})/g, '$1 ').trim() : '—'}{fiche.ibanHolder ? ` · ${fiche.ibanHolder}` : ''}
                     </>}
                   </div>) : <div className="sub">Informations personnelles : pas encore remplies (la personne les saisit dans son espace)</div>}
+                {isOwner && <RhSection api={api} member={m} />}
                 <div className="sub" style={{ marginTop: 4 }}>Documents déposés{docs.length ? '' : ' : aucun'}</div>
                 {docs.map((d) => (
                   <div key={d.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -336,5 +338,57 @@ function Envois({ api, session }: { api: Api; session: Session }) {
       </div>
       <div className="error" role="alert">{error}</div>
     </>
+  );
+}
+
+/** Contrats et fiches de salaire d'une personne (Gérant seul) : dépôt des PDF, suivi lecture / signature. */
+function RhSection({ api, member }: { api: Api; member: Member }) {
+  const [list, setList] = useState<HrDoc[]>([]);
+  const [kind, setKind] = useState<HrKind>('fiche_salaire');
+  const [month, setMonth] = useState(() => { const d = new Date(); if (d.getDate() < 20) d.setMonth(d.getMonth() - 1);   // fiche du mois en cours dès le 20 return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; });
+  const [title, setTitle] = useState('');
+  const [sign, setSign] = useState(true);
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const load = useCallback(() => { api.rhList(member.id).then(setList).catch(() => undefined); }, [api, member.id]);
+  useEffect(() => { load(); }, [load]);
+  const auto = defaultTitle(kind, month);
+  const send = async () => {
+    if (!file) return;
+    setBusy(true); setError('');
+    try {
+      const period = kind === 'fiche_salaire' ? `${month}-01` : kind === 'certificat_salaire' ? `${month.slice(0, 4)}-01-01` : null;
+      await api.rhUpload(member.id, kind, title.trim() || auto, period, file, signable(kind) && sign);
+      setFile(null); setTitle(''); load();
+    } catch (e) { setError((e as Error).message); }
+    setBusy(false);
+  };
+  const status = (d: HrDoc) => d.signedAt ? `✓ signé le ${new Date(d.signedAt).toLocaleString('fr-CH', { dateStyle: 'short', timeStyle: 'short' })}`
+    : d.requiresSignature ? (d.seenAt ? 'ouvert, pas encore signé' : 'à signer · pas encore ouvert') : d.seenAt ? `vu le ${new Date(d.seenAt).toLocaleDateString('fr-CH')}` : 'pas encore vu';
+  const sel = { border: 'none', fontSize: 15, background: 'transparent', flex: 1, minWidth: 0, fontFamily: 'inherit' } as const;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: '0.5px solid #E5E5EA', paddingTop: 8, marginTop: 4 }}>
+      <div className="sub" style={{ color: '#000', fontWeight: 600 }}>Contrat et salaires (Gérant seul)</div>
+      {list.map((d) => (
+        <div key={d.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className="link" style={{ textAlign: 'left', flex: 1, minWidth: 160 }} onClick={async () => window.open(await api.rhUrl(d.path), '_blank')}>
+            {d.title} <span className="sub">· {status(d)}</span></button>
+          {d.signedAt && <button className="link" onClick={() => api.rhCertificate(d, member.prenom)}>Attestation</button>}
+          {!d.signedAt && <button className="link" style={{ color: 'var(--red)' }} onClick={async () => { if (confirm(`Retirer « ${d.title} » ?`)) { await api.rhDelete(d); load(); } }}>Retirer</button>}
+        </div>))}
+      <div className="group" style={{ background: '#F2F2F7' }}>
+        <label className="row"><span style={{ width: 70 }}>Type</span>
+          <select value={kind} onChange={(e) => setKind(e.target.value as HrKind)} style={sel}>{HR_KINDS.map((k) => <option key={k} value={k}>{HR_LABEL[k]}</option>)}</select></label>
+        {(kind === 'fiche_salaire' || kind === 'certificat_salaire') && <label className="row"><span style={{ width: 70 }}>{kind === 'fiche_salaire' ? 'Mois' : 'Année'}</span>
+          <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} style={sel} /></label>}
+        <label className="row"><span style={{ width: 70 }}>Titre</span><input value={title} placeholder={auto} onChange={(e) => setTitle(e.target.value)} style={sel} /></label>
+        {signable(kind) && <label className="row"><span className="grow">À faire signer dans l’app</span><input type="checkbox" checked={sign} onChange={(e) => setSign(e.target.checked)} /></label>}
+        <label className="row"><span style={{ width: 70 }}>PDF</span><input type="file" accept="application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} style={{ ...sel, fontSize: 13 }} /></label>
+      </div>
+      {signable(kind) && sign && <p className="note" style={{ margin: 0 }}>Signature électronique simple : valable comme preuve d’accord, mais pas pour les clauses qui exigent la forme écrite (temps d’essai de plus d’un mois, renonciation aux heures supplémentaires, interdiction de concurrence, apprentissage) : pour celles-ci, faites aussi signer à la main.</p>}
+      <div className="error" role="alert">{error}</div>
+      <button className="btn btn-primary" disabled={!file || busy} onClick={send}>{busy ? 'Envoi…' : `Envoyer à ${member.prenom}`}</button>
+    </div>
   );
 }

@@ -2,9 +2,10 @@
 // Le serveur reste l'autorité : droits, seuils, horodatage, registres en ajout seul.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Right, Status } from '../domain/rules';
-import { PRIVACY_VERSION } from '../domain/privacy';
+import { CONTROLLER, PRIVACY_VERSION } from '../domain/privacy';
 import { currentSubscription, subscribePush } from '../notify/push';
 import { readingStatus } from '../domain/rules';
+import { sha256Hex, signatureCertificate, type HrDoc } from '../rh/rh';
 import { kvDel, kvGet, kvSet, type QueueItem } from '../offline/store';
 import { enqueue, flush, initSync, isNetworkError, looksOffline, markOffline, markOnline, OfflineError, syncState } from '../offline/sync';
 import type { DayReport } from '../report/dailyReport';
@@ -269,6 +270,34 @@ export function createSupabaseApi(sb: SupabaseClient): Api {
       return (await rpc<J[]>('rpc_documents_membre', { p_member: memberId })).map((j): MemberDoc => ({ ...(j as MemberDoc), at: new Date(j.at) }));
     },
     async memberProfile(memberId) { return rpc('rpc_profil_membre', { p_member: memberId }) as Promise<MemberProfile>; },
+    async rhList(memberId) { return rpc<HrDoc[]>('rpc_rh_membre', { p_member: memberId }); },
+    async rhUpload(memberId, kind, title, period, file, sign) {
+      if (file.type !== 'application/pdf') throw new Error('Déposez un fichier PDF');
+      const company = await rpc<string>('my_company');
+      const path = `${company}/${memberId}/${kind}/${crypto.randomUUID()}.pdf`;
+      const hash = await sha256Hex(file);
+      const { error } = await sb.storage.from('documents-rh').upload(path, file, { contentType: 'application/pdf' });
+      if (error) throw new Error('Envoi impossible : ' + error.message);
+      try { await rpc('rpc_rh_ajouter', { p_member: memberId, p_kind: kind, p_title: title, p_period: period, p_path: path, p_sha256: hash, p_sign: sign }); }
+      catch (e) { await sb.storage.from('documents-rh').remove([path]); throw e; }
+    },
+    async rhDelete(doc) {
+      await rpc('rpc_rh_supprimer', { p_id: doc.id });
+      await sb.storage.from('documents-rh').remove([doc.path]);
+    },
+    async rhUrl(path) {
+      const { data, error } = await sb.storage.from('documents-rh').createSignedUrl(path, 300);
+      if (error || !data) throw new Error('Document introuvable');
+      return data.signedUrl;
+    },
+    async rhCertificate(doc, who) {
+      let img: string | null = null;
+      if (doc.signaturePath) {
+        const { data } = await sb.storage.from('documents-rh').download(doc.signaturePath);
+        if (data) img = await new Promise<string>((ok) => { const r = new FileReader(); r.onload = () => ok(r.result as string); r.readAsDataURL(data); });
+      }
+      await signatureCertificate(doc, who, CONTROLLER.name, img);
+    },
     async docUrl(path) {
       const { data, error } = await sb.storage.from('documents-employes').createSignedUrl(path, 120);
       if (error || !data) throw new Error('Document introuvable');

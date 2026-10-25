@@ -13,7 +13,7 @@ create role authenticator login password 'test' noinherit;
 create role service_role nologin bypassrls;
 SQL
 su postgres -c "psql -q -d postgres -c 'grant anon, authenticated, service_role to authenticator'" >/dev/null 2>&1 || true
-for f in supabase/migrations/00[1-8]*.sql; do su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB -f $f" >/dev/null; done
+for f in supabase/migrations/00[1-9]*.sql; do su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB -f $f" >/dev/null; done
 sed "s/'0000');/'2580');/" supabase/setup_original_completos.sql | su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB" >/dev/null
 su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB -f supabase/seed_materiel_nettoyage.sql" >/dev/null
 su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB" <<'SQL' >/dev/null
@@ -32,6 +32,8 @@ insert into member(id, company_id, poste_id, first_name, last_name, lang) values
  ('00000000-0000-0000-0000-0000000000b3','00000000-0000-0000-0000-0000000000c1','00000000-0000-0000-0000-0000000000a3','Esteban','Q','fr'),
  ('00000000-0000-0000-0000-0000000000b4','00000000-0000-0000-0000-0000000000c1','00000000-0000-0000-0000-0000000000a4','Lucía','R','es');
 select set_member_pin('00000000-0000-0000-0000-0000000000b3','4827');
+insert into auth.users(id, email) values ('aaaaaaaa-0000-0000-0000-000000000003','esteban@test.ch');
+update member set auth_user_id = 'aaaaaaaa-0000-0000-0000-000000000003' where id = '00000000-0000-0000-0000-0000000000b3';
 select set_member_pin('00000000-0000-0000-0000-0000000000b4','6142');
 insert into recipe(company_id, name, code, shelf_days, allergens) values
  ('00000000-0000-0000-0000-0000000000c1','Sauce Original''s','ORI',2,'{oeufs,moutarde}'),

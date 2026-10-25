@@ -21,7 +21,7 @@ select set_config('request.jwt.claim.sub','a0000000-0000-0000-0000-00000000000a'
 create temp table s as select norma.rpc_ouvrir('4827') as j;
 create temp table tk as select ((select j from s)->>'token')::uuid as t;
 select pg_temp.expect((select (j->>'prenom') = 'Esteban' and (j->>'privacyAck')::boolean = false and (j->>'trained')::boolean = false from s), 'Ouverture : session JSON complète');
-select norma.rpc_notice_lue((select t from tk), '2026-10-25b');
+select norma.rpc_notice_lue((select t from tk), '2026-10-25c');
 select pg_temp.expect(not norma.rpc_formation((select t from tk), 4), 'Quiz 4/5 : refusé');
 select pg_temp.expect(norma.rpc_formation((select t from tk), 5), 'Quiz 5/5 : validé');
 select norma.rpc_fermer_session((select t from tk));
