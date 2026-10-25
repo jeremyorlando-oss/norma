@@ -1,6 +1,6 @@
 // Espace Employé (V1.1, D30) : sur son propre téléphone, chacun voit son planning, ses heures, ses formations,
 // et dépose ses documents. Aucune donnée des autres ni de l'hygiène du stand n'est visible.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { LangProvider, LOCALE, useLang, useT, type Lang } from '../i18n';
 import { Segmented } from '../components/Controls';
@@ -10,15 +10,15 @@ import { LOGO_ICON_URL } from '../brand/logo';
 
 type J = Record<string, any>;   // eslint-disable-line @typescript-eslint/no-explicit-any
 type Tab = 'planning' | 'heures' | 'documents' | 'profil';
-type DocKind = 'identite' | 'avs' | 'bancaire' | 'certificat_medical' | 'autre';
-const KINDS: DocKind[] = ['identite', 'avs', 'bancaire', 'certificat_medical', 'autre'];
+type DocKind = 'identite' | 'avs' | 'bancaire' | 'certificat_medical' | 'cv' | 'certificat' | 'autre';
+const KINDS: DocKind[] = ['cv', 'certificat', 'identite', 'avs', 'bancaire', 'certificat_medical', 'autre'];
 const KIND_FR: Record<DocKind, string> = { identite: 'Pièce d’identité / permis', avs: 'Carte AVS', bancaire: 'Coordonnées bancaires (IBAN)',
-  certificat_medical: 'Certificat médical', autre: 'Autre document' };
+  certificat_medical: 'Certificat médical', cv: 'CV', certificat: 'Certificat de travail / diplôme', autre: 'Autre document' };
 const day = (s: string) => { const [y, m, d] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
 const input = { width: '100%', border: 'none', fontFamily: 'inherit', fontSize: 17, background: 'transparent', color: '#000', padding: '14px 16px' } as const;
 
 export function Employe({ sb, signOut, onBack }: { sb: SupabaseClient; signOut: () => void; onBack?: () => void }) {
-  const db = sb.schema('norma');
+  const db = useMemo(() => sb.schema('norma'), [sb]);
   const [me, setMe] = useState<J | null>(null);
   const [error, setError] = useState('');
   const load = useCallback(async () => {
@@ -125,7 +125,7 @@ function Documents({ sb, me }: { sb: SupabaseClient; me: J }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
-  const db = sb.schema('norma');
+  const db = useMemo(() => sb.schema('norma'), [sb]);
   const load = useCallback(() => { db.rpc('rpc_mes_documents').then(({ data }) => setDocs(data ?? [])); }, [db]);
   useEffect(() => { load(); }, [load]);
   const upload = async (f: File | undefined) => {
@@ -156,7 +156,7 @@ function Documents({ sb, me }: { sb: SupabaseClient; me: J }) {
       {kind === 'certificat_medical' && <p className="note">{t('Le certificat médical n’est visible que par le Gérant.')}</p>}
       <label className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: busy ? 0.6 : 1 }}>
         {busy ? t('Envoi…') : t('Photographier ou choisir un fichier')}
-        <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} disabled={busy} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
+        <input type="file" accept="image/*,application/pdf,.doc,.docx" style={{ display: 'none' }} disabled={busy} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
       </label>
       <div className="note" role="status">{msg}</div>
       <div className="error" role="alert">{error}</div>
@@ -192,6 +192,7 @@ function Profil({ sb, me, reload, signOut }: { sb: SupabaseClient; me: J; reload
           <span className="sub">{me.privacyAck ? t('Notice lue le {d}', { d: new Date(me.privacyAck).toLocaleDateString(loc) }) : t('Notice à lire sur la tablette du stand')}</span></span>
           <button className="link" onClick={() => setNotice(!notice)}>{notice ? t('Fermer') : t('Lire')}</button></div>
       </div>
+      <MesInfos sb={sb} />
       {notice && (
         <div className="group" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <b>{n.title}</b><p className="note" style={{ margin: 0 }}>{n.intro}</p>
@@ -263,5 +264,69 @@ function Creer({ sb, token, info, onDone }: { sb: SupabaseClient; token: string;
       <button className="btn btn-primary" disabled={busy}>{busy ? '…' : t('Créer mon accès')}</button>
       <p className="note" style={{ textAlign: 'center' }}>{t('Ensuite, ajoutez NORMA à l’écran d’accueil : Partager › Sur l’écran d’accueil.')}</p>
     </form>
+  );
+}
+
+type Field = { k: string; label: string; ph?: string; type?: 'date' | 'select'; opts?: [string, string][]; ac?: string; im?: 'numeric' | 'tel' | 'email' };
+const PERMITS: [string, string][] = [['', '—'], ['CH', 'Suisse (pas de permis)'], ['B', 'Permis B'], ['C', 'Permis C'], ['L', 'Permis L'], ['G', 'Permis G (frontalier)'],
+  ['Ci', 'Permis Ci'], ['F', 'Permis F'], ['N', 'Permis N'], ['S', 'Permis S'], ['autre', 'Autre']];
+const CIVIL: [string, string][] = [['', '—'], ['celibataire', 'Célibataire'], ['marie', 'Marié·e'], ['partenariat', 'Partenariat enregistré'],
+  ['separe', 'Séparé·e'], ['divorce', 'Divorcé·e'], ['veuf', 'Veuf·ve']];
+const SECTIONS: [string, Field[]][] = [
+  ['Identité', [{ k: 'prenoms', label: 'Prénoms complets', ac: 'given-name' }, { k: 'nom', label: 'Nom complet', ac: 'family-name' },
+    { k: 'birthDate', label: 'Date de naissance', type: 'date', ac: 'bday' }, { k: 'nationality', label: 'Nationalité' },
+    { k: 'permit', label: 'Permis de séjour', type: 'select', opts: PERMITS }, { k: 'permitUntil', label: 'Permis valable jusqu’au', type: 'date' }]],
+  ['Coordonnées', [{ k: 'email', label: 'E-mail', ac: 'email', im: 'email' }, { k: 'phone', label: 'Téléphone', ac: 'tel', im: 'tel' },
+    { k: 'street', label: 'Rue et numéro', ac: 'street-address' }, { k: 'npa', label: 'NPA', ac: 'postal-code', im: 'numeric' },
+    { k: 'city', label: 'Localité', ac: 'address-level2' }, { k: 'country', label: 'Pays', ac: 'country-name' }]],
+  ['Salaire et assurances sociales', [{ k: 'avs', label: 'Numéro AVS', ph: '756.1234.5678.97', im: 'numeric' },
+    { k: 'iban', label: 'IBAN', ph: 'CH93 0076 2011 6238 5295 7' }, { k: 'ibanHolder', label: 'Titulaire du compte' },
+    { k: 'civilStatus', label: 'État civil', type: 'select', opts: CIVIL }, { k: 'children', label: 'Enfants à charge', im: 'numeric' }]],
+  ['Personne à prévenir en cas d’urgence', [{ k: 'emergencyName', label: 'Nom' }, { k: 'emergencyPhone', label: 'Téléphone', im: 'tel' }]],
+];
+
+/** Informations personnelles (dossier du personnel) : saisies par la personne elle-même. */
+function MesInfos({ sb }: { sb: SupabaseClient }) {
+  const t = useT();
+  const [v, setV] = useState<J | null>(null);
+  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+  const db = useMemo(() => sb.schema('norma'), [sb]);
+  const show = (d: J) => ({ ...d, iban: (d.iban ?? '').replace(/(.{4})/g, '$1 ').trim() });
+  useEffect(() => { db.rpc('rpc_mon_profil').then(({ data }) => data && setV(show(data))); }, [db]);
+  if (!v) return null;
+  const save = async () => {
+    setMsg(''); setError('');
+    const { data, error } = await db.rpc('rpc_mon_profil_maj', { p: { ...v, children: v.children === null || v.children === undefined ? '' : String(v.children) } });
+    if (error) setError(t(error.message)); else { setV(show(data)); setMsg(t('Informations enregistrées.')); }
+  };
+  const fmt = (k: string, x: string) => {
+    if (k === 'avs') { const d = x.replace(/\D/g, '').slice(0, 13); return [d.slice(0, 3), d.slice(3, 7), d.slice(7, 11), d.slice(11, 13)].filter(Boolean).join('.'); }
+    if (k === 'iban') return x.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 34).replace(/(.{4})/g, '$1 ').trim();
+    if (k === 'children') return x.replace(/\D/g, '').slice(0, 2);
+    return x;
+  };
+  const style = { flex: 1, minWidth: 0, border: 'none', fontSize: 16, fontFamily: 'inherit', background: 'transparent' } as const;
+  return (
+    <>
+      {SECTIONS.map(([title, fields]) => (<div key={title}>
+        <div className="section-label">{t(title)}</div>
+        <div className="group">
+          {fields.map((f) => (
+            <label className="row" key={f.k}><span style={{ width: 130, flexShrink: 0 }}>{t(f.label)}</span>
+              {f.type === 'select'
+                ? <select value={v[f.k] ?? ''} onChange={(e) => setV({ ...v, [f.k]: e.target.value })} style={style}>
+                    {f.opts!.map(([val, l]) => <option key={val} value={val}>{t(l)}</option>)}</select>
+                : <input type={f.type ?? 'text'} value={v[f.k] ?? ''} placeholder={f.ph} inputMode={f.im} autoComplete={f.ac}
+                    onChange={(e) => setV({ ...v, [f.k]: fmt(f.k, e.target.value) })} style={style} />}
+            </label>))}
+        </div>
+      </div>))}
+      <div className="note" role="status">{msg}</div>
+      <div className="error" role="alert">{error}</div>
+      <button className="btn btn-primary" onClick={save}>{t('Enregistrer mes informations')}</button>
+      <p className="note">{t('Ces informations servent au contrat, aux salaires et aux assurances sociales. Visibles seulement par vous et la Direction ; données de salaire (AVS, IBAN, date de naissance, état civil, enfants, permis) : Gérant seul.')}</p>
+      <p className="note">{t('Déposez aussi dans Documents : pièce d’identité ou permis, carte AVS, attestation bancaire, CV, certificats.')}</p>
+    </>
   );
 }

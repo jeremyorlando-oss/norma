@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AdminDoc, Api, AuditEntry, DocKind, EventInfo, InspectorAccess, DayStats, Member, MemberAccount, MemberDoc, Nc, NcStep, ReportSettings, Session } from '../api/types';
+import type { AdminDoc, Api, AuditEntry, DocKind, EventInfo, MemberProfile, InspectorAccess, DayStats, Member, MemberAccount, MemberDoc, Nc, NcStep, ReportSettings, Session } from '../api/types';
 import { Segmented } from '../components/Controls';
 import { Evenements } from './Evenements';
 import { Reglages } from './Reglages';
@@ -198,7 +198,7 @@ const INVITE_MSG: Record<string, (p: string, l: string) => string> = {
   en: (p, l) => `Hi ${p}, here is your personal access to NORMA, the team app: ${l}\nYou will find your schedule, your hours and your documents there. The link is valid for 48 h and works only once.`,
 };
 const DOC_LABEL: Record<DocKind, string> = { identite: 'Pièce d’identité / permis', avs: 'Carte AVS', bancaire: 'Coordonnées bancaires',
-  certificat_medical: 'Certificat médical', autre: 'Autre' };
+  certificat_medical: 'Certificat médical', cv: 'CV', certificat: 'Certificat / diplôme', autre: 'Autre' };
 const dmy = (d: Date) => d.toLocaleDateString('fr-CH');
 
 function Equipe({ api, session }: { api: Api; session: Session }) {
@@ -206,6 +206,7 @@ function Equipe({ api, session }: { api: Api; session: Session }) {
   const [acc, setAcc] = useState<Record<string, MemberAccount>>({});
   const [open, setOpen] = useState<string | null>(null);
   const [docs, setDocs] = useState<MemberDoc[]>([]);
+  const [fiche, setFiche] = useState<MemberProfile | null>(null);
   const [prenom, setPrenom] = useState('');
   const [nom, setNom] = useState('');
   const [lang, setLang] = useState('fr');
@@ -217,7 +218,7 @@ function Equipe({ api, session }: { api: Api; session: Session }) {
     api.accounts().then((l) => setAcc(Object.fromEntries(l.map((a) => [a.memberId, a])))).catch(() => undefined);
   }, [api]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setDocs([]); if (open) api.memberDocs(open).then(setDocs).catch(() => undefined); }, [api, open]);
+  useEffect(() => { setDocs([]); setFiche(null); if (open) { api.memberDocs(open).then(setDocs).catch(() => undefined); api.memberProfile(open).then(setFiche).catch(() => undefined); } }, [api, open]);
   const postes = ['Aide de cuisine', 'Caisse', 'Chef de cuisine', ...(session.poste === 'Gérant' ? ['Manager'] : [])];
   const isOwner = session.droits.includes('reglages_gerant');
   const run = (f: () => Promise<unknown>) => async () => { setError(''); try { await f(); load(); } catch (e) { setError((e as Error).message); } };
@@ -265,6 +266,19 @@ function Equipe({ api, session }: { api: Api; session: Session }) {
                   {a?.invitationJusqua ? 'Renvoyer l’invitation par WhatsApp' : 'Inviter sur son téléphone (WhatsApp)'}</button>}
                 {a?.invitationJusqua && !a.compte && <span className="sub">Lien valable jusqu’au {a.invitationJusqua.toLocaleString('fr-CH', { dateStyle: 'short', timeStyle: 'short' })}</span>}
                 {canManage && a?.compte && m.id !== session.memberId && <button className="link" style={{ textAlign: 'left', color: 'var(--red)' }} onClick={revoke(m)}>Retirer l’accès téléphone</button>}
+                {fiche?.updatedAt ? (
+                  <div className="sub" style={{ lineHeight: 1.5 }}>
+                    <b style={{ color: '#000' }}>{fiche.prenoms} {fiche.nom}</b><br />
+                    {[fiche.street, [fiche.npa, fiche.city].filter(Boolean).join(' '), fiche.country !== 'Suisse' ? fiche.country : ''].filter(Boolean).join(', ')}
+                    {fiche.phone && <><br /><a href={`tel:${fiche.phone.replace(/\s/g, '')}`}>{fiche.phone}</a></>}
+                    {fiche.email && <><br /><a href={`mailto:${fiche.email}`}>{fiche.email}</a></>}
+                    {fiche.emergencyName && <><br />Urgence : {fiche.emergencyName} {fiche.emergencyPhone}</>}
+                    {fiche.full && <>
+                      <br />Né·e le {fiche.birthDate ? new Date(fiche.birthDate).toLocaleDateString('fr-CH') : '—'} · {fiche.nationality || '—'} · Permis {fiche.permit || '—'}{fiche.permitUntil ? ` (jusqu’au ${new Date(fiche.permitUntil).toLocaleDateString('fr-CH')})` : ''}
+                      <br />AVS {fiche.avs || '—'} · État civil {fiche.civilStatus || '—'} · Enfants {fiche.children ?? '—'}
+                      <br />IBAN {fiche.iban ? fiche.iban.replace(/(.{4})/g, '$1 ').trim() : '—'}{fiche.ibanHolder ? ` · ${fiche.ibanHolder}` : ''}
+                    </>}
+                  </div>) : <div className="sub">Informations personnelles : pas encore remplies (la personne les saisit dans son espace)</div>}
                 <div className="sub" style={{ marginTop: 4 }}>Documents déposés{docs.length ? '' : ' : aucun'}</div>
                 {docs.map((d) => (
                   <div key={d.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

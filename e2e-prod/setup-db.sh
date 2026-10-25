@@ -13,7 +13,7 @@ create role authenticator login password 'test' noinherit;
 create role service_role nologin bypassrls;
 SQL
 su postgres -c "psql -q -d postgres -c 'grant anon, authenticated, service_role to authenticator'" >/dev/null 2>&1 || true
-for f in supabase/migrations/00[1-7]*.sql; do su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB -f $f" >/dev/null; done
+for f in supabase/migrations/00[1-8]*.sql; do su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB -f $f" >/dev/null; done
 sed "s/'0000');/'2580');/" supabase/setup_original_completos.sql | su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB" >/dev/null
 su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB -f supabase/seed_materiel_nettoyage.sql" >/dev/null
 su postgres -c "psql -q -v ON_ERROR_STOP=1 -d $DB" <<'SQL' >/dev/null

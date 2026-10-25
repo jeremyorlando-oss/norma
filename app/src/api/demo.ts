@@ -336,6 +336,7 @@ export function createDemoApi(): Api {
     },
     async revokeAccess(memberId) { demoAccounts.delete(memberId); },
     async memberDocs() { return []; },
+    async memberProfile(id) { const m = DEMO_MEMBERS.find((x) => x.id === id); return { prenoms: m?.prenom ?? '', nom: '', email: '', phone: '', street: '', npa: '', city: '', country: 'Suisse', emergencyName: '', emergencyPhone: '', full: false }; },
     async docUrl() { throw new Error('Pas de documents dans la démo'); },
     async deleteDoc() { /* démo */ },
     async reportSettings() { return { hour: demoReportHour, sent: [] }; },

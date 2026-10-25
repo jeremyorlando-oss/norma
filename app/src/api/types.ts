@@ -91,7 +91,10 @@ export interface Outage { start: Date; end: Date | null; by: string }
 
 /** Contrat commun : implémenté par la démo (mémoire) et par Supabase (fonctions RPC du serveur). */
 export interface MemberAccount { memberId: string; langue: 'fr' | 'es' | 'en'; compte: boolean; invitationJusqua: Date | null; documents: number }
-export type DocKind = 'identite' | 'avs' | 'bancaire' | 'certificat_medical' | 'autre';
+export type DocKind = 'identite' | 'avs' | 'bancaire' | 'certificat_medical' | 'cv' | 'certificat' | 'autre';
+export interface MemberProfile { prenoms: string; nom: string; email: string; phone: string; street: string; npa: string; city: string; country: string;
+  emergencyName: string; emergencyPhone: string; full: boolean; updatedAt?: string | null; avs?: string; birthDate?: string | null; nationality?: string; permit?: string;
+  permitUntil?: string | null; civilStatus?: string; children?: number | null; iban?: string; ibanHolder?: string }
 export interface MemberDoc { id: string; kind: DocKind; path: string; filename: string; at: Date }
 export interface ReportSettings { hour: number; sent: { day: Date; at: Date; to: number }[] }
 
@@ -126,6 +129,7 @@ export interface Api {
   inviteMember(memberId: string): Promise<string>;   // jeton du lien (48 h, usage unique)
   revokeAccess(memberId: string): Promise<void>;
   memberDocs(memberId: string): Promise<MemberDoc[]>;
+  memberProfile(memberId: string): Promise<MemberProfile>;
   docUrl(path: string): Promise<string>;
   deleteDoc(doc: MemberDoc): Promise<void>;
   // Envois automatiques : rapport du matin par e-mail, notifications iPhone

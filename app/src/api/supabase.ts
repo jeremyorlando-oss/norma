@@ -9,7 +9,7 @@ import { kvDel, kvGet, kvSet, type QueueItem } from '../offline/store';
 import { enqueue, flush, initSync, isNetworkError, looksOffline, markOffline, markOnline, OfflineError, syncState } from '../offline/sync';
 import type { DayReport } from '../report/dailyReport';
 import type { Api, CleaningTask, Equipment, EquipmentType, EventInfo, EventSummary, HoursAlert, HotBatch, Lot, Member, Nc,
-  OfficialLimit, Session, MemberAccount, MemberDoc, ReportSettings, StandAlert, TimeEntry, AdminDoc, Dish, Recipe, DayStats, Outage, AuditEntry, InspectorInfo } from './types';
+  OfficialLimit, Session, MemberAccount, MemberDoc, MemberProfile, ReportSettings, StandAlert, TimeEntry, AdminDoc, Dish, Recipe, DayStats, Outage, AuditEntry, InspectorInfo } from './types';
 
 /** Jeton des actions faites depuis l'iPhone (Gérant / Manager) : le serveur identifie la personne par son compte. */
 export const IPHONE_TOKEN = 'iphone';
@@ -268,6 +268,7 @@ export function createSupabaseApi(sb: SupabaseClient): Api {
     async memberDocs(memberId) {
       return (await rpc<J[]>('rpc_documents_membre', { p_member: memberId })).map((j): MemberDoc => ({ ...(j as MemberDoc), at: new Date(j.at) }));
     },
+    async memberProfile(memberId) { return rpc('rpc_profil_membre', { p_member: memberId }) as Promise<MemberProfile>; },
     async docUrl(path) {
       const { data, error } = await sb.storage.from('documents-employes').createSignedUrl(path, 120);
       if (error || !data) throw new Error('Document introuvable');
