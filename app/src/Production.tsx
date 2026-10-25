@@ -7,9 +7,14 @@ import type { Session } from './api/types';
 import { LOGO_ICON_URL } from './brand/logo';
 import { Employe, Invitation } from './screens/Employe';
 
+// Réseau faible en festival : au-delà de 12 s sans réponse, la saisie part dans la file hors ligne
+const fetchWithTimeout: typeof fetch = (input, init) => fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(12_000) });
 const sb = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true },   // la tablette reste connectée
+  global: { fetch: fetchWithTimeout },
 });
+const WHO_KEY = 'norma.appareil';   // « tablette » mémorisé : l'app du stand s'ouvre même sans réseau
+const rememberedDevice = () => { try { return localStorage.getItem(WHO_KEY) === 'tablette'; } catch { return false; } };
 const api = createSupabaseApi(sb);
 
 type Who = { kind: 'loading' } | { kind: 'login' } | { kind: 'device' } | { kind: 'direction'; session: Session } | { kind: 'employee' } | { kind: 'other' };
@@ -27,8 +32,10 @@ export function Production() {
   }, []);
   useEffect(() => {
     if (auth === undefined) return;
-    if (!auth) { setWho({ kind: 'login' }); return; }
-    sb.schema('norma').rpc('rpc_moi').then(({ data, error }) => {
+    if (!auth) { setWho(rememberedDevice() && !navigator.onLine ? { kind: 'device' } : { kind: 'login' }); return; }
+    sb.schema('norma').rpc('rpc_moi').then(({ data, error, status }) => {
+      if ((!status || error) && rememberedDevice()) return setWho({ kind: 'device' });   // pas de réseau : tablette du stand
+      try { localStorage.setItem(WHO_KEY, data?.kind === 'device' ? 'tablette' : ''); } catch { /* stockage indisponible */ }
       if (error || !data) return setWho({ kind: 'other' });
       if (data.kind === 'device') return setWho({ kind: 'device' });
       if (data.kind === 'direction') return api.directionLogin('').then((session) => setWho({ kind: 'direction', session }));

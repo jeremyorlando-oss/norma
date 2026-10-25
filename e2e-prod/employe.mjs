@@ -15,13 +15,13 @@ const g = await phone();
 await g.goto('http://localhost:8767/'); await g.getByLabel('E-mail').fill('orlando@test.ch'); await g.getByLabel('Mot de passe').fill('test1234');
 await g.getByRole('button', { name: 'Se connecter' }).click(); await g.waitForTimeout(1200);
 await g.getByRole('radio', { name: 'Équipe', exact: true }).click(); await g.waitForTimeout(800);
-await g.getByRole('button', { name: /^Lucía/ }).click(); await g.waitForTimeout(500);
+await g.getByRole('button', { name: /^Lucía Aide/ }).click(); await g.waitForTimeout(500);
 await g.getByRole('button', { name: /Inviter sur son téléphone/ }).click(); await g.waitForTimeout(800);
 const wa = await g.evaluate(() => window.__opened);
 const msg = decodeURIComponent(wa.split('text=')[1]);
 log('WhatsApp :', wa.startsWith('https://wa.me/?text='), '·', msg.split('\n')[0].slice(0, 60));
 const link = msg.match(/http\S+/)[0];
-log('statut équipe :', await g.getByRole('button', { name: /^Lucía/ }).innerText());
+log('statut équipe :', await g.getByRole('button', { name: /^Lucía Aide/ }).innerText());
 await g.screenshot({ path: `${out}/emp-1-equipe.png` });
 
 // Lucía ouvre le lien sur son téléphone
@@ -57,8 +57,8 @@ log('lien réutilisé :', (await e2.getByRole('alert').innerText()).slice(0, 40)
 // Gérant : compte actif, document visible, envois automatiques
 await g.reload(); await g.waitForTimeout(1200);
 await g.getByRole('radio', { name: 'Équipe', exact: true }).click(); await g.waitForTimeout(800);
-log('statut après création :', (await g.getByRole('button', { name: /^Lucía/ }).innerText()).replace(/\n/g, ' '));
-await g.getByRole('button', { name: /^Lucía/ }).click(); await g.waitForTimeout(800);
+log('statut après création :', (await g.getByRole('button', { name: /^Lucía Aide/ }).innerText()).replace(/\n/g, ' '));
+await g.getByRole('button', { name: /^Lucía Aide/ }).click(); await g.waitForTimeout(800);
 log('documents côté Gérant :', await g.getByRole('button', { name: /Carte AVS/ }).innerText());
 await g.screenshot({ path: `${out}/emp-6-gerant-docs.png` });
 await g.getByRole('radio', { name: 'Plus', exact: true }).click(); await g.waitForTimeout(800);

@@ -322,6 +322,17 @@ const ROWS: [string, string, string][] = [
   ['Cette adresse e-mail a déjà un compte', 'Este correo ya tiene una cuenta', 'This e-mail already has an account'],
   ['Création du compte impossible', 'No se pudo crear la cuenta', 'Account could not be created'],
   ['Ensuite, ajoutez NORMA à l’écran d’accueil : Partager › Sur l’écran d’accueil.', 'Después, añada NORMA a la pantalla de inicio: Compartir › Añadir a pantalla de inicio.', 'Then add NORMA to your home screen: Share › Add to Home Screen.'],
+  // — Mode hors ligne
+  ['Hors ligne', 'Sin conexión', 'Offline'], ['les saisies sont gardées sur la tablette', 'los registros se guardan en la tableta', 'entries are kept on the tablet'],
+  ['Envoi de {n} saisie(s)…', 'Enviando {n} registro(s)…', 'Sending {n} entries…'],
+  ['{n} saisie(s) en attente d’envoi', '{n} registro(s) pendiente(s) de envío', '{n} entries waiting to be sent'],
+  ['{n} saisie(s) refusée(s) par le serveur', '{n} registro(s) rechazado(s) por el servidor', '{n} entries rejected by the server'],
+  ['Refaites ces saisies à la main si nécessaire, puis effacez la liste.', 'Rehaga estos registros a mano si hace falta y borre la lista.', 'Redo these entries by hand if needed, then clear the list.'],
+  ['Effacer la liste', 'Borrar la lista', 'Clear the list'],
+  ['Pas de réseau : code inconnu sur cette tablette (une première connexion avec réseau est nécessaire).', 'Sin red: código desconocido en esta tableta (hace falta una primera conexión con red).', 'No network: code unknown on this tablet (a first login with network is needed).'],
+  ['Trop d’essais : patientez une minute.', 'Demasiados intentos: espere un minuto.', 'Too many attempts: wait one minute.'],
+  ['Réseau nécessaire pour cette action : réessayez dès que le réseau revient.', 'Esta acción necesita red: inténtelo de nuevo cuando vuelva.', 'This action needs the network: try again when it is back.'],
+  ['Pas de réseau : cette action sera possible dès le retour du réseau.', 'Sin red: esta acción será posible cuando vuelva la red.', 'No network: this action will be possible once the network is back.'],
 ];
 
 // Textes non traduits volontairement : affichette client trilingue, origine des viandes (déjà trilingue).

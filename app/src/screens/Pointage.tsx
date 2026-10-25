@@ -1,6 +1,7 @@
 import { LOGO_GLYPH_WHITE_URL } from '../brand/logo';
 import { useT } from '../i18n';
 import { OutageBanner } from '../components/OutageBanner';
+import { OfflineBanner } from '../components/OfflineBanner';
 import { useEffect, useState } from 'react';
 import type { Api, Session, StandAlert } from '../api/types';
 import { formatDelay, worstAlert } from '../domain/rules';
@@ -54,6 +55,8 @@ export function Pointage({ api, onSession, demoHint, onDirection }: { api: Api; 
         </div>
 
         <OutageBanner api={api} />
+
+        <OfflineBanner />
         {alerts.length > 0 && (
           <div className="group" style={{ width: '100%' }} role="status" aria-live="polite">
             {alerts.map((a) => (
