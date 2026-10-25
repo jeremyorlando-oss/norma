@@ -75,4 +75,12 @@ button:disabled { opacity: .45; cursor: default; }
 .check.soon { border-color: #B38F00; }
 .check.done { background: var(--green); border-color: var(--green); }
 .demo-banner { font-size: 12px; color: var(--text-3); text-align: center; }
-@media print { body * { visibility: hidden; } .print-label, .print-label * { visibility: visible; } .print-label { position: absolute; top: 0; left: 0; border: none !important; } }
+/* Étiquette de lot : imprimante Brother QL-820NWBc (AirPrint), rouleau continu 62 mm (DK-22205), étiquette de 62 × 30 mm */
+@page { size: 62mm 30mm; margin: 2mm; }
+/* À l'impression, seule l'étiquette existe : aucune page blanche ajoutée sur le rouleau */
+.print-only { display: none; }
+@media print {
+  html, body { background: #fff !important; }
+  #root { display: none !important; }
+  .print-only { display: flex !important; border: none !important; padding: 0 !important; zoom: 0.68; }
+}

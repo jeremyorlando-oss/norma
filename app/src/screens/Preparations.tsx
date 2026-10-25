@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useT } from '../i18n';
 import { useCallback, useEffect, useState } from 'react';
 import type { Api, Lot, Recipe, Session } from '../api/types';
@@ -29,16 +30,20 @@ export function Preparations({ api, session, onBack }: { api: Api; session: Sess
     try { await api.jeterLot(session.token, l.id); setConfirm(null); load(); } catch (e) { setError(t((e as Error).message)); }
   };
 
-  if (label) return (
-    <div className="screen">
-      <TopBar title={t('Étiquette')} onBack={() => setLabel(null)} />
-      <div className="print-label" style={{ alignSelf: 'center', width: 320, background: '#fff', border: '1.5px dashed #8E8E93', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4, fontFamily: 'Helvetica, Arial, sans-serif', color: '#000' }}>
+  const labelEl = (cls: string) => label && (
+      <div className={cls} style={{ alignSelf: 'center', width: 320, background: '#fff', border: '1.5px dashed #8E8E93', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4, fontFamily: 'Helvetica, Arial, sans-serif', color: '#000' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}><b style={{ fontSize: 18 }}>{label.recipe.name.toUpperCase()}</b><span style={{ fontSize: 12 }}>{t('≤ 4 °C')}</span></div>
         <b style={{ fontSize: 15 }}>{t('LOT')} {label.lot.lotCode}</b>
         <span style={{ fontSize: 13 }}>{t('Produit le :')} {label.lot.producedOn.toLocaleDateString('fr-CH')} · {label.lot.by}</span>
         <b style={{ fontSize: 15 }}>{t('À utiliser jusqu’au :')} {label.lot.useBy.toLocaleDateString('fr-CH')}</b>
         <span style={{ fontSize: 12 }}>{t('Allergènes :')} {label.recipe.allergens.length ? label.recipe.allergens.map((a) => ALLERGENES[a] ?? a).join(', ') : 'aucun déclaré'}</span>
       </div>
+  );
+  if (label) return (
+    <div className="screen">
+      <TopBar title={t('Étiquette')} onBack={() => setLabel(null)} />
+      {labelEl('print-label')}
+      {createPortal(labelEl('print-label print-only'), document.body)}
       <p className="note" style={{ textAlign: 'center' }}>{t('Allergènes de la démo à valider avec les étiquettes des produits.')}</p>
       <div style={{ marginTop: 'auto' }}><button className="btn btn-primary" onClick={() => window.print()}>{t('Imprimer l’étiquette')}</button></div>
     </div>
