@@ -6,11 +6,16 @@ import { CONTROLLER, PRIVACY_VERSION } from '../domain/privacy';
 import { currentSubscription, subscribePush } from '../notify/push';
 import { readingStatus } from '../domain/rules';
 import { sha256Hex, signatureCertificate, type HrDoc } from '../rh/rh';
+import { computePayslip, DEFAULT_SETTINGS } from '../rh/paie';
+import { workedMinutes } from '../domain/hours';
+import { buildCdd, missingFields, type CddData } from '../rh/contrat/cdd';
+import { buildFiche, type FicheData } from '../rh/contrat/fiche';
+import { pdfBlob } from '../rh/contrat/load';
 import { kvDel, kvGet, kvSet, type QueueItem } from '../offline/store';
 import { enqueue, flush, initSync, isNetworkError, looksOffline, markOffline, markOnline, OfflineError, syncState } from '../offline/sync';
 import type { DayReport } from '../report/dailyReport';
 import type { Api, CleaningTask, Equipment, EquipmentType, EventInfo, EventSummary, HoursAlert, HotBatch, Lot, Member, Nc,
-  OfficialLimit, Session, MemberAccount, MemberDoc, MemberProfile, ReportSettings, StandAlert, TimeEntry, AdminDoc, Dish, Recipe, DayStats, Outage, AuditEntry, InspectorInfo } from './types';
+  OfficialLimit, Session, MemberAccount, MemberDoc, MemberProfile, ReportSettings, PaieReglages, PaieMembre, StandAlert, TimeEntry, AdminDoc, Dish, Recipe, DayStats, Outage, AuditEntry, InspectorInfo } from './types';
 
 /** Jeton des actions faites depuis l'iPhone (Gérant / Manager) : le serveur identifie la personne par son compte. */
 export const IPHONE_TOKEN = 'iphone';
@@ -278,8 +283,63 @@ export function createSupabaseApi(sb: SupabaseClient): Api {
       const hash = await sha256Hex(file);
       const { error } = await sb.storage.from('documents-rh').upload(path, file, { contentType: 'application/pdf' });
       if (error) throw new Error('Envoi impossible : ' + error.message);
-      try { await rpc('rpc_rh_ajouter', { p_member: memberId, p_kind: kind, p_title: title, p_period: period, p_path: path, p_sha256: hash, p_sign: sign }); }
+      try { return await rpc<HrDoc>('rpc_rh_ajouter', { p_member: memberId, p_kind: kind, p_title: title, p_period: period, p_path: path, p_sha256: hash, p_sign: sign }); }
       catch (e) { await sb.storage.from('documents-rh').remove([path]); throw e; }
+    },
+    async paieReglages() { return rpc<PaieReglages>('rpc_paie_reglages'); },
+    async savePaieReglages(v) { await rpc('rpc_paie_reglages_maj', { p: v }); },
+    async paieMembre(memberId, year) { return rpc<PaieMembre>('rpc_paie_membre', { p_member: memberId, p_year: year }); },
+    async savePaieMembre(memberId, tax, onReq) { await rpc('rpc_paie_membre_maj', { p_member: memberId, p_source_tax: tax, p_avs_on_request: onReq }); },
+    async makeContract(memberId, prenom, c) {
+      const p = await this.memberProfile(memberId);
+      const data: CddData = { prenoms: p.prenoms, nom: p.nom, birthDate: p.birthDate ?? '', street: p.street, npa: p.npa, city: p.city, avs: p.avs ?? '',
+        fonction: c.fonction, start: c.start, end: c.end, salaireHoraire: c.rate, signedOn: new Date(), electronique: c.electronique };
+      const missing = missingFields(data);
+      if (missing.length) throw new Error(`Fiche de ${prenom} incomplète : ${missing.join(', ')} (à remplir dans son espace › Profil)`);
+      const blob = await pdfBlob((wm) => buildCdd(data, wm));
+      const title = `Contrat CDD du ${c.start.split('-').reverse().join('.')} au ${c.end.split('-').reverse().join('.')}`;
+      const doc = await this.rhUpload(memberId, 'contrat', title, null, new File([blob], 'contrat.pdf', { type: 'application/pdf' }), c.electronique);
+      await rpc('rpc_contrat_enregistrer', { p_member: memberId, p_poste: c.poste, p_fonction: c.fonction, p_start: c.start, p_end: c.end, p_rate: c.rate, p_hr_doc: doc.id });
+      if (!c.electronique) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Contrat-${prenom}-${c.start}.pdf`; a.click(); }
+    },
+    async previewPayslip(memberId, month) {
+      const [y, m] = month.split('-').map(Number);
+      const [p, pm, st] = await Promise.all([this.memberProfile(memberId), this.paieMembre(memberId, y), this.paieReglages()]);
+      const from = new Date(y, m - 1, 1), to = new Date(y, m, 1), now = new Date();
+      const shifts = (await this.timeEntries(from, to)).filter((e) => e.memberId === memberId && e.start >= from && e.start < to);
+      const minutes = shifts.reduce((n, e) => n + workedMinutes({ start: e.start, end: e.end ?? now, breaks: e.breaks }, now), 0);
+      const monthStart = `${month}-01`, monthEnd = iso(new Date(y, m, 0));
+      const contract = pm.contracts.find((c) => c.start <= monthEnd && c.end >= monthStart);
+      const before = pm.payslips.filter((x) => x.month < monthStart);
+      const result = computePayslip({ month, minutes, hourlyRate: contract?.hourlyRate ?? pm.posteRate ?? 0, birthDate: p.birthDate ?? null,
+        permit: p.permit ?? '', sourceTaxPct: pm.sourceTaxPct, avsOnRequest: pm.avsOnRequest,
+        ytdGross: before.reduce((n, x) => n + Number(x.gross), 0), ytdAvsBase: before.reduce((n, x) => n + Number(x.avsBase), 0),
+        ytdAcBase: before.reduce((n, x) => n + Number(x.acBase), 0) }, { ...DEFAULT_SETTINGS, ...st });
+      const missing = [...result.errors];
+      if (!contract) missing.push('Aucun contrat enregistré pour ce mois (préparez d’abord le contrat)');
+      if (!minutes) missing.push('Aucune heure pointée ce mois-ci');
+      if (!p.iban) missing.push('IBAN manquant (fiche de la personne)');
+      if (pm.payslips.some((x) => x.month.slice(0, 7) === month)) missing.push('Fiche déjà établie pour ce mois');
+      const payDate = iso(new Date(y, m - 1, Math.min(st.payDay, new Date(y, m, 0).getDate())));
+      const fiche: FicheData | null = contract ? { month, prenoms: p.prenoms, nom: p.nom, birthDate: p.birthDate ?? '', street: p.street, npa: p.npa, city: p.city,
+        avs: p.avs ?? '', fonction: contract.fonction, contractStart: contract.start, contractEnd: contract.end, hourlyRate: contract.hourlyRate,
+        iban: p.iban ?? '', ibanHolder: p.ibanHolder ?? '', payDate, r: result } : null;
+      return { result, fiche, missing };
+    },
+    async sendPayslip(memberId, prenom, month) {
+      const { fiche, missing, result } = await this.previewPayslip(memberId, month);
+      if (missing.length || !fiche) throw new Error(missing.join(' · '));
+      const blob = await pdfBlob((wm) => buildFiche(fiche, wm));
+      const label = new Date(`${month}-01T12:00:00`).toLocaleDateString('fr-CH', { month: 'long', year: 'numeric' });
+      const doc = await this.rhUpload(memberId, 'fiche_salaire', `Salaire ${label}`, `${month}-01`, new File([blob], `salaire-${prenom}-${month}.pdf`, { type: 'application/pdf' }), false);
+      await rpc('rpc_fiche_enregistrer', { p_member: memberId, p_month: `${month}-01`, p_hours: result.hours, p_rate: fiche.hourlyRate, p_gross: result.gross,
+        p_avs_base: result.avsBase, p_ac_base: result.acBase, p_net: result.net, p_data: result, p_hr_doc: doc.id });
+    },
+    async removePayslip(memberId, month) {
+      const docs = await this.rhList(memberId);
+      await rpc('rpc_fiche_retirer', { p_member: memberId, p_month: `${month}-01` });
+      const d = docs.find((x) => x.kind === 'fiche_salaire' && x.period?.slice(0, 7) === month && !x.seenAt);
+      if (d) await sb.storage.from('documents-rh').remove([d.path]);
     },
     async rhDelete(doc) {
       await rpc('rpc_rh_supprimer', { p_id: doc.id });

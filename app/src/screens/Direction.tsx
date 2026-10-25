@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AdminDoc, Api, AuditEntry, DocKind, EventInfo, MemberProfile, InspectorAccess, DayStats, Member, MemberAccount, MemberDoc, Nc, NcStep, ReportSettings, Session } from '../api/types';
+import type { AdminDoc, Api, AuditEntry, DocKind, EventInfo, MemberProfile, InspectorAccess, DayStats, Member, MemberAccount, MemberDoc, Nc, NcStep, ReportSettings, Session, PaieMembre, PaieReglages } from '../api/types';
 import { Segmented } from '../components/Controls';
 import { Evenements } from './Evenements';
 import { Reglages } from './Reglages';
 import { Heures, HoursAlerts } from './Heures';
 import { defaultTitle, HR_KINDS, HR_LABEL, signable, type HrDoc, type HrKind } from '../rh/rh';
+import { FONCTIONS } from '../rh/contrat/cdd';
+import { fmtChf, type PayResult } from '../rh/paie';
 
 type Tab = 'jour' | 'nc' | 'equipe' | 'plus';
 const STEP_LABEL: Record<NcStep['step'], string> = { mesure_immediate: 'Mesure immédiate', evaluation_risque: 'Évaluation du risque',
@@ -19,6 +21,7 @@ export function Direction({ api, onDepannage, onLogout, onInspector, initialSess
   const [tab, setTab] = useState<Tab>('jour');
   const [reglages, setReglages] = useState(false);
   const [espace, setEspace] = useState(false);
+  const [paie, setPaie] = useState(false);
 
   if (!session) return (
     <div className="screen">
@@ -34,6 +37,7 @@ export function Direction({ api, onDepannage, onLogout, onInspector, initialSess
   );
 
   if (espace && monEspace) return monEspace(() => setEspace(false));
+  if (paie) return <div className="screen"><PaieReglagesScreen api={api} onBack={() => setPaie(false)} /></div>;
   return (
     <div className="screen">
       <div><div className="eyebrow">{session.poste}</div><h1 className="h1">{tab === 'jour' ? 'Aujourd’hui' : tab === 'nc' ? 'Incidents' : tab === 'equipe' ? 'Équipe' : 'Plus'}</h1></div>
@@ -48,6 +52,8 @@ export function Direction({ api, onDepannage, onLogout, onInspector, initialSess
       {tab === 'plus' && !reglages && <Evenements api={api} session={session} />}
       {tab === 'plus' && !reglages && (
         <div className="group">
+          {session.droits.includes('reglages_gerant') && <button className="row" style={rowBtn} onClick={() => setPaie(true)}>
+            <span className="grow"><span className="main">Salaires</span><span className="sub">Taux horaire par poste · assurances · jour de paie</span></span>›</button>}
           {monEspace && <button className="row" style={rowBtn} onClick={() => setEspace(true)}>
             <span className="grow"><span className="main">Mon espace</span><span className="sub">Mon planning · mes heures · mes documents · mon profil</span></span>›</button>}
           <button className="row" style={rowBtn} onClick={() => setReglages(true)}>
@@ -370,6 +376,8 @@ function RhSection({ api, member }: { api: Api; member: Member }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: '0.5px solid #E5E5EA', paddingTop: 8, marginTop: 4 }}>
       <div className="sub" style={{ color: '#000', fontWeight: 600 }}>Contrat et salaires (Gérant seul)</div>
+      <ContratForm api={api} member={member} onDone={load} />
+      <FicheForm api={api} member={member} onDone={load} />
       {list.map((d) => (
         <div key={d.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="link" style={{ textAlign: 'left', flex: 1, minWidth: 160 }} onClick={async () => window.open(await api.rhUrl(d.path), '_blank')}>
@@ -390,5 +398,151 @@ function RhSection({ api, member }: { api: Api; member: Member }) {
       <div className="error" role="alert">{error}</div>
       <button className="btn btn-primary" disabled={!file || busy} onClick={send}>{busy ? 'Envoi…' : `Envoyer à ${member.prenom}`}</button>
     </div>
+  );
+}
+
+const sel2 = { border: 'none', fontSize: 15, background: 'transparent', flex: 1, minWidth: 0, fontFamily: 'inherit' } as const;
+const iso2 = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Contrat CDD rempli automatiquement avec la fiche de la personne (modèle du contrat papier). */
+function ContratForm({ api, member, onDone }: { api: Api; member: Member; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [rates, setRates] = useState<Record<string, number | null>>({});
+  const [poste, setPoste] = useState(member.poste);
+  const [fonction, setFonction] = useState('employé polyvalent');
+  const [start, setStart] = useState(iso2(new Date()));
+  const [end, setEnd] = useState(iso2(new Date()));
+  const [rate, setRate] = useState('');
+  const [electronique, setElectronique] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => { if (open) api.paieReglages().then((r) => { setRates(r.postes); setRate(String(r.postes[poste] ?? '')); }).catch((e) => setError(e.message)); }, [open]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const choosePoste = (p: string) => { setPoste(p); setRate(String(rates[p] ?? '')); };
+  const go = async () => {
+    setBusy(true); setError('');
+    try { await api.makeContract(member.id, member.prenom, { poste, fonction: fonction.trim(), start, end, rate: Number(rate.replace(',', '.')), electronique }); setOpen(false); onDone(); }
+    catch (e) { setError((e as Error).message); }
+    setBusy(false);
+  };
+  if (!open) return <button className="link" style={{ textAlign: 'left' }} onClick={() => setOpen(true)}>+ Préparer le contrat (modèle CDD rempli automatiquement)</button>;
+  return (
+    <div className="group" style={{ background: '#F2F2F7' }}>
+      <label className="row"><span style={{ width: 90 }}>Poste</span>
+        <select value={poste} onChange={(e) => choosePoste(e.target.value)} style={sel2}>{Object.keys(rates).filter((p) => p !== 'Gérant').map((p) => <option key={p}>{p}</option>)}</select></label>
+      <label className="row"><span style={{ width: 90 }}>En qualité de</span>
+        <input list="fonctions" value={fonction} onChange={(e) => setFonction(e.target.value)} style={sel2} />
+        <datalist id="fonctions">{FONCTIONS.map((f) => <option key={f} value={f} />)}</datalist></label>
+      <label className="row"><span style={{ width: 90 }}>Début</span><input type="date" value={start} onChange={(e) => { setStart(e.target.value); if (end < e.target.value) setEnd(e.target.value); }} style={sel2} /></label>
+      <label className="row"><span style={{ width: 90 }}>Fin</span><input type="date" value={end} min={start} onChange={(e) => setEnd(e.target.value)} style={sel2} /></label>
+      <label className="row"><span style={{ width: 90 }}>CHF / heure</span><input inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="taux du poste" style={sel2} /></label>
+      <label className="row"><span className="grow">Signature dans l’app (sinon : PDF à imprimer)</span><input type="checkbox" checked={electronique} onChange={(e) => setElectronique(e.target.checked)} /></label>
+      <div className="error" role="alert" style={{ padding: '0 16px' }}>{error}</div>
+      <div style={{ display: 'flex', gap: 8, padding: 8 }}>
+        <button className="btn" onClick={() => setOpen(false)}>Annuler</button>
+        <button className="btn btn-primary" disabled={busy || !rate || !fonction.trim()} onClick={go}>{busy ? '…' : electronique ? `Envoyer le contrat à ${member.prenom}` : 'Créer le PDF du contrat'}</button>
+      </div>
+    </div>
+  );
+}
+
+/** Fiche de salaire du mois : heures pointées × taux du contrat, déductions calculées, aperçu avant envoi. */
+function FicheForm({ api, member, onDone }: { api: Api; member: Member; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [month, setMonth] = useState(() => { const d = new Date(); if (d.getDate() < 20) d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; });
+  const [prev, setPrev] = useState<{ result: PayResult; missing: string[] } | null>(null);
+  const [pm, setPm] = useState<PaieMembre | null>(null);
+  const [tax, setTax] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const loadPm = () => api.paieMembre(member.id, Number(month.slice(0, 4))).then((x) => { setPm(x); setTax(x.sourceTaxPct === null ? '' : String(x.sourceTaxPct)); });
+  const calc = async () => { setError(''); setPrev(null); try { setPrev(await api.previewPayslip(member.id, month)); } catch (e) { setError((e as Error).message); } };
+  useEffect(() => { if (open) { loadPm().catch((e) => setError(e.message)); calc(); } }, [open, month]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const savePm = async (t: string, onReq: boolean) => { await api.savePaieMembre(member.id, t === '' ? null : Number(t.replace(',', '.')), onReq); await loadPm(); calc(); };
+  const send = async () => { setBusy(true); setError(''); try { await api.sendPayslip(member.id, member.prenom, month); await loadPm(); setPrev(null); onDone(); } catch (e) { setError((e as Error).message); } setBusy(false); };
+  const remove = async (m: string) => { if (!confirm('Retirer cette fiche ?')) return; try { await api.removePayslip(member.id, m); await loadPm(); calc(); onDone(); } catch (e) { setError((e as Error).message); } };
+  const money = (n: number) => fmtChf(n);
+  if (!open) return <button className="link" style={{ textAlign: 'left' }} onClick={() => setOpen(true)}>+ Établir une fiche de salaire (calcul automatique)</button>;
+  const r = prev?.result;
+  return (
+    <div className="group" style={{ background: '#F2F2F7' }}>
+      <label className="row"><span style={{ width: 90 }}>Mois</span><input type="month" value={month} onChange={(e) => setMonth(e.target.value)} style={sel2} /></label>
+      {pm && <>
+        <label className="row"><span className="grow">Impôt à la source (%)<span className="sub">Permis B, L, G… : taux du barème vaudois</span></span>
+          <input inputMode="decimal" value={tax} onChange={(e) => setTax(e.target.value)} onBlur={() => savePm(tax, pm.avsOnRequest)} style={{ ...sel2, flex: '0 0 70px', textAlign: 'right' }} placeholder="—" /></label>
+        <label className="row"><span className="grow">Cotisations AVS même sous CHF 2 500/an<span className="sub">À la demande de la personne</span></span>
+          <input type="checkbox" checked={pm.avsOnRequest} onChange={(e) => savePm(tax, e.target.checked)} /></label>
+        {pm.payslips.map((x) => (
+          <div className="row" key={x.month}><span className="grow"><span className="main">{new Date(x.month).toLocaleDateString('fr-CH', { month: 'long', year: 'numeric' })}</span>
+            <span className="sub">Brut CHF {money(Number(x.gross))} · net CHF {money(Number(x.net))}</span></span>
+            <button className="link" style={{ color: 'var(--red)' }} onClick={() => remove(x.month.slice(0, 7))}>Retirer</button></div>))}
+      </>}
+      {r && (
+        <div style={{ padding: '8px 16px', fontSize: 15, lineHeight: 1.6 }}>
+          <div><b>{money(r.hours)} h</b> pointées</div>
+          {r.earnings.map((l) => <div key={l.label} style={{ display: 'flex' }}><span className="grow">{l.label}</span><span>{money(l.amount)}</span></div>)}
+          <div style={{ display: 'flex', fontWeight: 700 }}><span className="grow">Salaire brut</span><span>{money(r.gross)}</span></div>
+          {r.deductions.map((l) => <div key={l.label} style={{ display: 'flex' }}><span className="grow">{l.label}</span><span>− {money(l.amount)}</span></div>)}
+          <div style={{ display: 'flex', fontWeight: 700 }}><span className="grow">Salaire net</span><span>CHF {money(r.net)}</span></div>
+          {r.notes.map((n) => <div key={n} className="sub">{n}</div>)}
+        </div>)}
+      {prev?.missing.length ? <div className="error" style={{ padding: '0 16px' }}>{prev.missing.map((m) => <div key={m}>• {m}</div>)}</div> : null}
+      <div className="error" role="alert" style={{ padding: '0 16px' }}>{error}</div>
+      <div style={{ display: 'flex', gap: 8, padding: 8 }}>
+        <button className="btn" onClick={() => setOpen(false)}>Fermer</button>
+        <button className="btn btn-primary" disabled={busy || !prev || prev.missing.length > 0} onClick={send}>{busy ? '…' : `Envoyer la fiche à ${member.prenom}`}</button>
+      </div>
+    </div>
+  );
+}
+
+/** Réglages des salaires (Gérant) : taux horaire par poste, taux des assurances, jour de paie. */
+function PaieReglagesScreen({ api, onBack }: { api: Api; onBack: () => void }) {
+  const [v, setV] = useState<PaieReglages | null>(null);
+  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+  useEffect(() => { api.paieReglages().then(setV).catch((e) => setError(e.message)); }, [api]);
+  if (!v) return <><button className="link" onClick={onBack}>‹ Plus</button><div className="error">{error}</div></>;
+  const num = (k: keyof PaieReglages, label: string, sub: string, nullable = false) => (
+    <label className="row" key={k}><span className="grow"><span className="main">{label}</span><span className="sub">{sub}</span></span>
+      <input inputMode="decimal" value={v[k] === null ? '' : String(v[k])} placeholder={nullable ? 'à saisir' : ''}
+        onChange={(e) => setV({ ...v, [k]: e.target.value === '' && nullable ? null : e.target.value.replace(',', '.') } as PaieReglages)}
+        style={{ width: 80, border: 'none', fontSize: 16, textAlign: 'right', background: 'transparent' }} /></label>);
+  const save = async () => {
+    setMsg(''); setError('');
+    try { await api.savePaieReglages(v); setMsg('Réglages enregistrés.'); } catch (e) { setError((e as Error).message); }
+  };
+  return (
+    <>
+      <button className="link" style={{ alignSelf: 'flex-start', padding: 0 }} onClick={onBack}>‹ Plus</button>
+      <h1 className="h1">Salaires</h1>
+      <div className="section-label">Taux horaire brut par poste (CHF, tout compris)</div>
+      <div className="group">
+        {Object.keys(v.postes).filter((p) => p !== 'Gérant').map((p) => (
+          <label className="row" key={p}><span className="grow">{p}</span>
+            <input inputMode="decimal" value={v.postes[p] ?? ''} placeholder="—" onChange={(e) => setV({ ...v, postes: { ...v.postes, [p]: e.target.value === '' ? null : (e.target.value.replace(',', '.') as unknown as number) } })}
+              style={{ width: 80, border: 'none', fontSize: 16, textAlign: 'right', background: 'transparent' }} /></label>))}
+      </div>
+      <p className="note">Repris automatiquement dans chaque nouveau contrat (modifiable au cas par cas).</p>
+      <div className="section-label">Ce que comprend le taux horaire (%)</div>
+      <div className="group">
+        {num('vacPct', 'Vacances', '4 semaines = 8,33 % (CO art. 329a)')}
+        {num('vacYoungPct', 'Vacances moins de 20 ans', '5 semaines = 10,64 % (CO art. 329a)')}
+        {num('holidaysPct', 'Jours fériés', 'Selon tes règles internes (ex. 6 jours/an ≈ 2,27 %) ; 0 = pas de ligne')}
+        {num('thirteenthPct', '13e salaire', '1/12 = 8,33 %')}
+      </div>
+      <div className="section-label">Déductions (part salarié, %)</div>
+      <div className="group">
+        {num('avsPct', 'AVS / AI / APG', 'Taux légal 2026 : 5,3 %')}
+        {num('acPct', 'Assurance chômage (AC)', 'Taux légal 2026 : 1,1 % jusqu’à CHF 148 200/an')}
+        {num('aanpPct', 'Accident non professionnel (AANP)', 'Taux de ton assureur accident (police LAA)', true)}
+        {num('ijmPct', 'Perte de gain maladie (IJM)', 'Part salarié selon ta police ; 0 si l’employeur paie tout')}
+        {num('lppPct', 'Prévoyance (LPP)', 'Pas due pour un CDD de 3 mois au plus ; sinon selon ta caisse')}
+        {num('payDay', 'Jour du versement', 'Jour du mois (ton contrat : le 30)')}
+      </div>
+      <div className="note" role="status">{msg}</div>
+      <div className="error" role="alert">{error}</div>
+      <button className="btn btn-primary" onClick={save}>Enregistrer</button>
+      <p className="note">Taux 2026 : AVS/AI/APG 5,3 % et AC 1,1 % (part salarié). À faire vérifier par ta fiduciaire avant la première fiche.</p>
+    </>
   );
 }

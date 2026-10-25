@@ -1,3 +1,5 @@
+import type { PayResult, PayrollSettings } from '../rh/paie';
+import type { FicheData } from '../rh/contrat/fiche';
 import type { HrDoc, HrKind } from '../rh/rh';
 import type { Alert, Right, Status } from '../domain/rules';
 import type { DayReport } from '../report/dailyReport';
@@ -99,6 +101,11 @@ export interface MemberProfile { prenoms: string; nom: string; email: string; ph
 export interface MemberDoc { id: string; kind: DocKind; path: string; filename: string; at: Date }
 export interface ReportSettings { hour: number; sent: { day: Date; at: Date; to: number }[] }
 
+export type PaieReglages = PayrollSettings & { payDay: number; postes: Record<string, number | null> };
+export interface PaieMembre { poste: string; posteRate: number | null; sourceTaxPct: number | null; avsOnRequest: boolean;
+  contracts: { id: string; poste: string; fonction: string; start: string; end: string; hourlyRate: number; hrDocumentId: string | null }[];
+  payslips: { month: string; gross: number; net: number; avsBase: number; acBase: number; hrDocumentId: string | null }[] }
+
 export interface Api {
   openSession(pin: string): Promise<Session>;
   closeSession(token: string): Promise<void>;
@@ -133,7 +140,16 @@ export interface Api {
   memberProfile(memberId: string): Promise<MemberProfile>;
   // Contrats et fiches de salaire (V1.2, Gérant seul)
   rhList(memberId: string): Promise<HrDoc[]>;
-  rhUpload(memberId: string, kind: HrKind, title: string, period: string | null, file: File, sign: boolean): Promise<void>;
+  rhUpload(memberId: string, kind: HrKind, title: string, period: string | null, file: File, sign: boolean): Promise<HrDoc>;
+  // Contrats générés et fiches de salaire calculées (Gérant)
+  paieReglages(): Promise<PaieReglages>;
+  savePaieReglages(s: PaieReglages): Promise<void>;
+  paieMembre(memberId: string, year: number): Promise<PaieMembre>;
+  savePaieMembre(memberId: string, sourceTaxPct: number | null, avsOnRequest: boolean): Promise<void>;
+  makeContract(memberId: string, prenom: string, c: { poste: string; fonction: string; start: string; end: string; rate: number; electronique: boolean }): Promise<void>;
+  previewPayslip(memberId: string, month: string): Promise<{ result: PayResult; fiche: FicheData | null; missing: string[] }>;
+  sendPayslip(memberId: string, prenom: string, month: string): Promise<void>;
+  removePayslip(memberId: string, month: string): Promise<void>;
   rhDelete(doc: HrDoc): Promise<void>;
   rhUrl(path: string): Promise<string>;
   rhCertificate(doc: HrDoc, who: string): Promise<void>;
