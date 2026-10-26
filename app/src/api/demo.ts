@@ -357,6 +357,7 @@ export function createDemoApi(): Api {
     async pushEnabled() { return false; },
     async pushSubscribe() { throw new Error('Notifications disponibles dans l’app en ligne (pas dans la démo)'); },
     async pushUnsubscribe() { /* démo */ },
+    async myTodo() { return { items: [], badge: 0, nc: 0 }; },
     async addMember(token, prenom, poste, _nom = '', lang = 'fr') {
       const m = member(token);
       if (!can(m, 'gestion_equipe')) throw new Error('Gestion de l’équipe non autorisée');

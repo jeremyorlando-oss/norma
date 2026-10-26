@@ -99,3 +99,14 @@ button:disabled { opacity: .45; cursor: default; }
   .pt-right { flex: 1; justify-content: center; }
   .pt-left .clock { font-size: clamp(56px, 13vw, 200px); }
 }
+
+/* Pastilles rouges « à faire » (012) ; badge-fire = urgent */
+.badge { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: var(--red); color: #fff; font-size: 12px; font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px #fff; }
+.badge-fire { animation: badge-fire 1.2s ease-in-out infinite; }
+@keyframes badge-fire { 0%, 100% { box-shadow: 0 0 0 2px #fff, 0 0 0 2px rgba(215, 0, 21, 0.6); } 50% { box-shadow: 0 0 0 2px #fff, 0 0 0 7px rgba(215, 0, 21, 0); } }
+@media (prefers-reduced-motion: reduce) { .badge-fire { animation: none; } }
+.todo-card { border: 2px solid var(--red); background: var(--red-bg); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.todo-row { display: flex; align-items: center; gap: 10px; width: 100%; border: none; background: #fff; border-radius: 10px; padding: 10px 12px; font-size: 16px; text-align: left; color: #000; }
+.todo-row.fire { border-left: 5px solid var(--red); }
+.field-missing { color: var(--red); }

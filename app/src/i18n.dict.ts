@@ -375,6 +375,25 @@ const ROWS: [string, string, string][] = [
   ['Ouvrez et lisez le document avant de signer', 'Abra y lea el documento antes de firmar', 'Open and read the document before signing'],
   ['Le fichier a changé : rouvrez le document avant de signer', 'El archivo ha cambiado: vuelva a abrirlo antes de firmar', 'The file has changed: reopen the document before signing'],
   ['Écrivez votre nom complet', 'Escriba su nombre completo', 'Write your full name'], ['Document déjà signé', 'Documento ya firmado', 'Document already signed'],
+  // — À faire, pastilles et notifications (012)
+  ['À signer : {x}', 'Por firmar: {x}', 'To sign: {x}'],
+  ['{n} nouveaux documents à ouvrir', '{n} documentos nuevos por abrir', '{n} new documents to open'],
+  ['Nouveau document à ouvrir', 'Documento nuevo por abrir', 'New document to open'],
+  ['{n} nouveaux événements au planning', '{n} eventos nuevos en tu planificación', '{n} new events on your schedule'],
+  ['Nouvel événement au planning', 'Evento nuevo en tu planificación', 'New event on your schedule'],
+  ['Compléter ma fiche personnelle ({n} champ(s) manquant(s))', 'Completar mi ficha personal ({n} campo(s) por rellenar)', 'Complete my personal details ({n} field(s) missing)'],
+  ['Lire la notice de protection des données', 'Leer el aviso de protección de datos', 'Read the privacy notice'],
+  ['Formation hygiène à faire (tablette du stand)', 'Formación de higiene pendiente (tableta del puesto)', 'Hygiene training to do (stand tablet)'],
+  ['Nouvelle notice à lire', 'Nuevo aviso por leer', 'New notice to read'], ['J’ai lu la notice', 'He leído el aviso', 'I have read the notice'],
+  ['Notice périmée : rechargez l’app', 'Aviso caducado: recargue la app', 'Outdated notice: reload the app'],
+  ['Notifications', 'Notificaciones', 'Notifications'], ['Activées sur ce téléphone', 'Activadas en este teléfono', 'On for this phone'],
+  ['Activer', 'Activar', 'Turn on'], ['Désactiver', 'Desactivar', 'Turn off'],
+  ['Contrat à signer, fiche de salaire, nouvel événement, rappel la veille', 'Contrato por firmar, nómina, evento nuevo, recordatorio la víspera', 'Contract to sign, payslip, new event, reminder the day before'],
+  ['Ouvrez NORMA depuis son icône sur l’écran d’accueil pour les activer', 'Abra NORMA desde su icono en la pantalla de inicio para activarlas', 'Open NORMA from its home-screen icon to turn them on'],
+  ['Le serveur prépare les notifications : réessayez dans une minute.', 'El servidor está preparando las notificaciones: inténtelo de nuevo en un minuto.', 'The server is preparing notifications: try again in a minute.'],
+  ['Pour recevoir les notifications, ouvrez NORMA depuis son icône sur l’écran d’accueil de l’iPhone.', 'Para recibir notificaciones, abra NORMA desde su icono en la pantalla de inicio del iPhone.', 'To get notifications, open NORMA from its icon on the iPhone home screen.'],
+  ['Notifications refusées. Autorisez-les dans Réglages › Notifications › NORMA.', 'Notificaciones rechazadas. Permítalas en Ajustes › Notificaciones › NORMA.', 'Notifications blocked. Allow them in Settings › Notifications › NORMA.'],
+
 ];
 
 // Textes non traduits volontairement : affichette client trilingue, origine des viandes (déjà trilingue).

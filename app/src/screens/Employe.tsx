@@ -3,11 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { LangProvider, LOCALE, useLang, useT, type Lang } from '../i18n';
-import { Segmented } from '../components/Controls';
+import { Badge, Segmented } from '../components/Controls';
 import { breakMinutes, fmtMin, workedMinutes, type Span } from '../domain/hours';
 import { CONTROLLER, privacyNotice } from '../domain/privacy';
 import { LOGO_ICON_URL } from '../brand/logo';
 import { HR_LABEL, sha256Hex, type HrDoc } from '../rh/rh';
+import { EMPTY_TODO, sortTodo, tabBadge, todoLabel, type Todo, type TodoItem } from '../notify/todo';
+import { onOpenFromNotification, requestedTab, setAppBadge } from '../notify/badge';
+import { currentSubscription, pushSupported, subscribePush } from '../notify/push';
+import { PRIVACY_VERSION } from '../domain/privacy';
 
 type J = Record<string, any>;   // eslint-disable-line @typescript-eslint/no-explicit-any
 type Tab = 'planning' | 'heures' | 'documents' | 'profil';
@@ -31,24 +35,66 @@ export function Employe({ sb, signOut, onBack }: { sb: SupabaseClient; signOut: 
   return <LangProvider lang={me.langue as Lang}><Espace sb={sb} me={me} reload={load} signOut={signOut} onBack={onBack} /></LangProvider>;
 }
 
+const TABS: Tab[] = ['planning', 'heures', 'documents', 'profil'];
+const asTab = (x: string | null): Tab | null => (x && (TABS as string[]).includes(x) ? x as Tab : null);
+
 function Espace({ sb, me, reload, signOut, onBack }: { sb: SupabaseClient; me: J; reload: () => void; signOut: () => void; onBack?: () => void }) {
   const t = useT();
-  const [tab, setTab] = useState<Tab>('planning');
-  const [toSign, setToSign] = useState(0);
-  useEffect(() => { sb.schema('norma').rpc('rpc_mes_rh').then(({ data }) => setToSign(((data ?? []) as J[]).filter((d) => d.requiresSignature && !d.signedAt).length)); }, [sb, tab]);
+  const [tab, setTab] = useState<Tab>(() => asTab(requestedTab()) ?? 'planning');
+  const [todo, setTodo] = useState<Todo>(EMPTY_TODO);
+  const refresh = useCallback(() => {
+    sb.schema('norma').rpc('rpc_mes_a_faire').then(({ data }) => {
+      if (!data) return;
+      setTodo(data as Todo);
+      setAppBadge((data as Todo).badge);
+    });
+  }, [sb]);
+  // à jour à chaque changement d'onglet, au retour dans l'app et chaque minute
+  useEffect(() => { refresh(); }, [refresh, tab]);
+  useEffect(() => {
+    const vis = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', vis);
+    const id = setInterval(refresh, 60_000);
+    const off = onOpenFromNotification((x) => { const tb = asTab(x); if (tb) setTab(tb); refresh(); });
+    return () => { document.removeEventListener('visibilitychange', vis); clearInterval(id); off(); };
+  }, [refresh]);
   const titles: Record<Tab, string> = { planning: t('Mon planning'), heures: t('Mes heures'), documents: t('Mes documents'), profil: t('Mon profil') };
+  const b = (x: Tab) => tabBadge(todo.items, x);
   return (
     <div className="screen">
       {onBack && <button className="link" style={{ alignSelf: 'flex-start', padding: 0 }} onClick={onBack}>‹ Direction</button>}
       <div><div className="eyebrow">{me.prenom} · {t(me.poste)}</div><h1 className="h1">{titles[tab]}</h1></div>
       <Segmented label={t('Sections')} value={tab} onChange={setTab}
-        options={[{ value: 'planning', label: t('Planning') }, { value: 'heures', label: t('Heures') }, { value: 'documents', label: toSign ? `${t('Documents')} (${toSign})` : t('Documents') }, { value: 'profil', label: t('Profil') }]} />
-      {tab === 'planning' && <Planning sb={sb} />}
+        options={[{ value: 'planning', label: t('Planning'), ...b('planning') }, { value: 'heures', label: t('Heures') },
+          { value: 'documents', label: t('Documents'), ...b('documents') }, { value: 'profil', label: t('Profil'), ...b('profil') }]} />
+      <AFaire items={todo.items.filter((i) => i.tab !== tab || i.urgent)} current={tab} onGo={setTab} />
+      {tab === 'planning' && <Planning sb={sb} onSeen={refresh} />}
       {tab === 'heures' && <Heures sb={sb} />}
-      {tab === 'planning' && toSign > 0 && <button className="btn btn-primary" onClick={() => setTab('documents')}>{t('{n} document(s) à signer', { n: toSign })}</button>}
-      {tab === 'documents' && <DeLEmployeur sb={sb} me={me} onChange={() => setTab('documents')} />}
+      {tab === 'documents' && <DeLEmployeur sb={sb} me={me} onChange={refresh} />}
       {tab === 'documents' && <Documents sb={sb} me={me} />}
-      {tab === 'profil' && <Profil sb={sb} me={me} reload={reload} signOut={signOut} />}
+      {tab === 'profil' && <Profil sb={sb} me={me} todo={todo} reload={() => { reload(); refresh(); }} signOut={signOut} />}
+    </div>
+  );
+}
+
+/** Carte rouge « À faire » : ce qui attend la personne, l'urgent (🔴) en premier ; un appui ouvre le bon onglet. */
+function AFaire({ items, current, onGo }: { items: TodoItem[]; current: Tab; onGo: (t: Tab) => void }) {
+  const t = useT();
+  if (!items.length) return null;
+  const fire = items.filter((i) => i.urgent).length;
+  return (
+    <div className="todo-card" role="region" aria-label={t('À faire')}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <b style={{ color: 'var(--red)' }}>{fire ? `🔴 ${t('{n} à faire maintenant', { n: fire })}` : t('À faire')}</b>
+        <Badge n={items.reduce((s, i) => s + i.n, 0)} fire={fire > 0} style={{ marginLeft: 'auto' }} />
+      </div>
+      {sortTodo(items).map((i) => {
+        const [k, v] = todoLabel(i);
+        return (
+          <button key={i.id} className={i.urgent ? 'todo-row fire' : 'todo-row'} onClick={() => onGo(i.tab)} disabled={i.tab === current && !i.urgent}>
+            <span className="grow">{i.urgent ? '🔴 ' : ''}{t(k, v)}</span>{i.tab !== current && <span style={{ color: '#C7C7CC' }}>›</span>}
+          </button>);
+      })}
     </div>
   );
 }
@@ -62,9 +108,11 @@ function useRpc<T>(sb: SupabaseClient, fn: string, args: J, deps: unknown[]) {
   return { data, error };
 }
 
-function Planning({ sb }: { sb: SupabaseClient }) {
+function Planning({ sb, onSeen }: { sb: SupabaseClient; onSeen: () => void }) {
   const t = useT(); const loc = LOCALE[useLang()];
   const { data, error } = useRpc<J[]>(sb, 'rpc_mon_planning', {}, []);
+  // la personne a vu son planning : la pastille « nouvel événement » disparaît
+  useEffect(() => { if (data) sb.schema('norma').rpc('rpc_planning_vu').then(onSeen); }, [data]);   // eslint-disable-line react-hooks/exhaustive-deps
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const fmt = (s: string) => day(s).toLocaleDateString(loc, { weekday: 'short', day: 'numeric', month: 'long' });
   return (
@@ -178,12 +226,17 @@ function Documents({ sb, me }: { sb: SupabaseClient; me: J }) {
   );
 }
 
-function Profil({ sb, me, reload, signOut }: { sb: SupabaseClient; me: J; reload: () => void; signOut: () => void }) {
+function Profil({ sb, me, todo, reload, signOut }: { sb: SupabaseClient; me: J; todo: Todo; reload: () => void; signOut: () => void }) {
   const t = useT(); const lang = useLang(); const loc = LOCALE[lang];
   const [notice, setNotice] = useState(false);
   const n = privacyNotice(lang, CONTROLLER);
   const setLang = async (l: string) => { await sb.schema('norma').rpc('rpc_ma_langue', { p_lang: l }); reload(); };
   const ok = (me.formations as J[]).find((f) => f.score === 5);
+  const noticeDue = todo.items.some((i) => i.kind === 'notice');
+  const ackNotice = async () => {
+    const { error } = await sb.schema('norma').rpc('rpc_ma_notice_lue', { p_version: PRIVACY_VERSION });
+    if (!error) { setNotice(false); reload(); }
+  };
   return (
     <>
       <div className="group">
@@ -194,16 +247,19 @@ function Profil({ sb, me, reload, signOut }: { sb: SupabaseClient; me: J; reload
         <div className="row"><span className="grow"><span className="main">{t('Formation hygiène')}</span>
           <span className="sub">{ok ? t('Validée le {d} (5/5)', { d: new Date(ok.at).toLocaleDateString(loc) }) : t('À faire sur la tablette du stand')}</span></span></div>
         <div className="row"><span className="grow"><span className="main">{t('Protection des données')}</span>
-          <span className="sub">{me.privacyAck ? t('Notice lue le {d}', { d: new Date(me.privacyAck).toLocaleDateString(loc) }) : t('Notice à lire sur la tablette du stand')}</span></span>
+          <span className={noticeDue ? 'sub field-missing' : 'sub'}>{!noticeDue && me.privacyAck ? t('Notice lue le {d}', { d: new Date(me.privacyAck).toLocaleDateString(loc) }) : t('Nouvelle notice à lire')}</span></span>
+          {noticeDue && <Badge n={1} style={{ marginRight: 8 }} />}
           <button className="link" onClick={() => setNotice(!notice)}>{notice ? t('Fermer') : t('Lire')}</button></div>
+        <Notifications sb={sb} />
       </div>
-      <MesInfos sb={sb} />
+      <MesInfos sb={sb} onSaved={reload} />
       {notice && (
         <div className="group" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <b>{n.title}</b><p className="note" style={{ margin: 0 }}>{n.intro}</p>
           {n.sections.map((s) => (<div key={s.title}><b>{s.title}</b>
             {s.text && <p className="note" style={{ margin: '4px 0 0' }}>{s.text}</p>}
             {s.rows?.map((r) => <p key={r[0]} className="note" style={{ margin: '4px 0 0' }}><b>{r[0]}</b> · {r[1]} · {r[2]}</p>)}</div>))}
+          {noticeDue && <button className="btn btn-primary" onClick={ackNotice}>{t('J’ai lu la notice')}</button>}
         </div>)}
       <img src={LOGO_ICON_URL} alt="" style={{ width: 40, height: 40, alignSelf: 'center', opacity: 0.6 }} />
       <button className="btn" style={{ color: 'var(--red)' }} onClick={signOut}>{t('Se déconnecter')}</button>
@@ -278,6 +334,8 @@ const needsPermitDate = (v: J) => !!v.permit && v.permit !== 'CH';
 const isSwiss = (x: string) => /^\s*(suisse|swiss|suiza|suizo|schweiz|svizzera|ch)\s*$/i.test(x ?? '');
 const PERMITS: [string, string][] = [['', '—'], ['CH', 'Suisse (pas de permis)'], ['B', 'Permis B'], ['C', 'Permis C'], ['L', 'Permis L'], ['G', 'Permis G (frontalier)'],
   ['Ci', 'Permis Ci'], ['F', 'Permis F'], ['N', 'Permis N'], ['S', 'Permis S'], ['autre', 'Autre']];
+// Champs obligatoires (même liste que profil_manquant, migration 012) : marqués en rouge tant qu'ils sont vides
+const REQUIRED = new Set(['prenoms', 'nom', 'birthDate', 'nationality', 'permit', 'permitUntil', 'avs', 'iban', 'street', 'npa', 'city', 'phone', 'emergencyName', 'emergencyPhone']);
 const CIVIL: [string, string][] = [['', '—'], ['celibataire', 'Célibataire'], ['marie', 'Marié·e'], ['partenariat', 'Partenariat enregistré'],
   ['separe', 'Séparé·e'], ['divorce', 'Divorcé·e'], ['veuf', 'Veuf·ve']];
 const SECTIONS: [string, Field[]][] = [
@@ -294,7 +352,7 @@ const SECTIONS: [string, Field[]][] = [
 ];
 
 /** Informations personnelles (dossier du personnel) : saisies par la personne elle-même. */
-function MesInfos({ sb }: { sb: SupabaseClient }) {
+function MesInfos({ sb, onSaved }: { sb: SupabaseClient; onSaved?: () => void }) {
   const t = useT();
   const [v, setV] = useState<J | null>(null);
   const [msg, setMsg] = useState('');
@@ -306,7 +364,7 @@ function MesInfos({ sb }: { sb: SupabaseClient }) {
   const save = async () => {
     setMsg(''); setError('');
     const { data, error } = await db.rpc('rpc_mon_profil_maj', { p: { ...v, children: v.children === null || v.children === undefined ? '' : String(v.children) } });
-    if (error) setError(t(error.message)); else { setV(show(data)); setMsg(t('Informations enregistrées.')); }
+    if (error) setError(t(error.message)); else { setV(show(data)); setMsg(t('Informations enregistrées.')); onSaved?.(); }
   };
   const fmt = (k: string, x: string) => {
     if (k === 'avs') { const d = x.replace(/\D/g, '').slice(0, 13); return [d.slice(0, 3), d.slice(3, 7), d.slice(7, 11), d.slice(11, 13)].filter(Boolean).join('.'); }
@@ -327,7 +385,8 @@ function MesInfos({ sb }: { sb: SupabaseClient }) {
         <div className="section-label">{t(title)}</div>
         <div className="group">
           {fields.filter((f) => !f.when || f.when(v)).map((f) => (
-            <label className="row" key={f.k}><span style={{ width: 130, flexShrink: 0 }}>{t(f.label)}</span>
+            <label className="row" key={f.k}><span className={REQUIRED.has(f.k) && !String(v[f.k] ?? '').trim() ? 'field-missing' : undefined}
+              style={{ width: 130, flexShrink: 0 }}>{t(f.label)}{REQUIRED.has(f.k) && !String(v[f.k] ?? '').trim() ? ' •' : ''}</span>
               {f.type === 'select'
                 ? <select value={v[f.k] ?? ''} onChange={(e) => setV(change(f.k, e.target.value))} style={style}>
                     {f.opts!.map(([val, l]) => <option key={val} value={val}>{t(l)}</option>)}</select>
@@ -346,7 +405,7 @@ function MesInfos({ sb }: { sb: SupabaseClient }) {
 }
 
 /** Documents envoyés par l'employeur : contrats à signer, fiches et certificats de salaire. */
-function DeLEmployeur({ sb, me }: { sb: SupabaseClient; me: J; onChange: () => void }) {
+function DeLEmployeur({ sb, me, onChange }: { sb: SupabaseClient; me: J; onChange: () => void }) {
   const t = useT(); const loc = LOCALE[useLang()];
   const db = useMemo(() => sb.schema('norma'), [sb]);
   const [list, setList] = useState<HrDoc[]>([]);
@@ -359,9 +418,9 @@ function DeLEmployeur({ sb, me }: { sb: SupabaseClient; me: J; onChange: () => v
     const { data } = await sb.storage.from('documents-rh').createSignedUrl(d.path, 300);
     if (!data) return setError(t('Document introuvable'));
     window.open(data.signedUrl, '_blank');
-    if (!d.seenAt) { await db.rpc('rpc_rh_vu', { p_id: d.id }); load(); }
+    if (!d.seenAt) { await db.rpc('rpc_rh_vu', { p_id: d.id }); load(); onChange(); }
   };
-  if (signing) return <Signer sb={sb} me={me} doc={signing} onDone={() => { setSigning(null); load(); }} />;
+  if (signing) return <Signer sb={sb} me={me} doc={signing} onDone={() => { setSigning(null); load(); onChange(); }} />;
   if (!list.length) return null;
   const pending = list.filter((d) => d.requiresSignature && !d.signedAt);
   const others = list.filter((d) => !(d.requiresSignature && !d.signedAt));
@@ -440,5 +499,42 @@ function Signer({ sb, me, doc, onDone }: { sb: SupabaseClient; me: J; doc: HrDoc
       <button className="btn" onClick={onDone}>{t('Annuler')}</button>
       <p className="note">{t('Votre signature, la date, l’heure et l’empreinte du fichier sont enregistrées comme preuve de votre accord.')}</p>
     </div>
+  );
+}
+
+/** Notifications sur ce téléphone : contrat à signer, nouvelle fiche de salaire, nouvel événement, rappel la veille. */
+function Notifications({ sb }: { sb: SupabaseClient }) {
+  const t = useT();
+  const db = useMemo(() => sb.schema('norma'), [sb]);
+  const [on, setOn] = useState<boolean | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    currentSubscription().then(async (s) => setOn(!!s && !!(await db.rpc('rpc_push_actif')).data)).catch(() => setOn(false));
+  }, [db]);
+  const toggle = async () => {
+    setError('');
+    try {
+      if (on) {
+        const s = await currentSubscription();
+        if (s) { await db.rpc('rpc_push_desabonner', { p_endpoint: s.endpoint }); await s.unsubscribe(); }
+        setOn(false);
+      } else {
+        const { data: key } = await db.rpc('rpc_push_cle');
+        if (!key) throw new Error(t('Le serveur prépare les notifications : réessayez dans une minute.'));
+        const s = await subscribePush(key as string);
+        const { error } = await db.rpc('rpc_push_abonner', { p_endpoint: s.endpoint, p_p256dh: s.p256dh, p_auth: s.auth });
+        if (error) throw new Error(error.message);
+        setOn(true);
+      }
+    } catch (e) { setError(t((e as Error).message)); }
+  };
+  return (
+    <>
+      <div className="row"><span className="grow"><span className="main">{t('Notifications')}</span>
+        <span className={on === false ? 'sub field-missing' : 'sub'}>{on ? t('Activées sur ce téléphone') : pushSupported()
+          ? t('Contrat à signer, fiche de salaire, nouvel événement, rappel la veille') : t('Ouvrez NORMA depuis son icône sur l’écran d’accueil pour les activer')}</span></span>
+        {on !== null && pushSupported() && <button className="link" onClick={toggle}>{on ? t('Désactiver') : t('Activer')}</button>}</div>
+      {error && <div className="row"><span className="error" role="alert">{error}</span></div>}
+    </>
   );
 }

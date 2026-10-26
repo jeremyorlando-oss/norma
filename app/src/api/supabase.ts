@@ -380,6 +380,7 @@ export function createSupabaseApi(sb: SupabaseClient): Api {
       const s = await subscribePush(key);
       await rpc('rpc_push_abonner', { p_endpoint: s.endpoint, p_p256dh: s.p256dh, p_auth: s.auth });
     },
+    async myTodo() { return rpc<import('../notify/todo').Todo>('rpc_mes_a_faire'); },
     async pushUnsubscribe() {
       const sub = await currentSubscription();
       if (sub) { await rpc('rpc_push_desabonner', { p_endpoint: sub.endpoint }); await sub.unsubscribe(); }

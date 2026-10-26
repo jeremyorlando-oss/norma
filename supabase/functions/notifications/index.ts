@@ -4,8 +4,8 @@
 import webpush from 'npm:web-push@3.6.7';
 import { admin, cronAutorise, json } from '../_commun/serveur.ts';
 
-type Sub = { endpoint: string; p256dh: string; auth: string };
-type Item = { key: string; title: string; body: string; urgent: boolean; to: Sub[] };
+type Sub = { endpoint: string; p256dh: string; auth: string; badge?: number };
+type Item = { key: string; title: string; body: string; urgent: boolean; url?: string; to: Sub[] };
 
 Deno.serve(async (req) => {
   const sb = admin();
@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     for (const s of it.to) {
       try {
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          JSON.stringify({ title: it.title, body: it.body, tag: it.key }), { TTL: 3600, urgency: it.urgent ? 'high' : 'normal' });
+          JSON.stringify({ title: it.title, body: it.body, tag: it.key, url: it.url ?? '/', badge: s.badge ?? null, urgent: it.urgent }), { TTL: 3600, urgency: it.urgent ? 'high' : 'normal' });
         sent++;
       } catch (e) {
         const code = (e as { statusCode?: number }).statusCode;

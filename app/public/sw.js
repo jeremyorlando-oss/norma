@@ -40,15 +40,20 @@ self.addEventListener('fetch', (e) => {
 });
 
 self.addEventListener('push', (e) => {
-  let d = { title: 'NORMA', body: '' };
+  let d = { title: 'NORMA', body: '', url: '/', badge: null, urgent: false };
   try { d = { ...d, ...e.data.json() }; } catch { if (e.data) d.body = e.data.text(); }
-  e.waitUntil(self.registration.showNotification(d.title, { body: d.body, tag: d.tag, icon: '/icon-192.png', badge: '/icon-192.png' }));
+  // pastille rouge sur l'icône de l'app : nombre de choses à faire (iPhone : iOS 16.4+, app sur l'écran d'accueil)
+  const badge = typeof d.badge === 'number' && 'setAppBadge' in self.navigator
+    ? (d.badge > 0 ? self.navigator.setAppBadge(d.badge) : self.navigator.clearAppBadge()).catch(() => undefined) : Promise.resolve();
+  e.waitUntil(Promise.all([badge, self.registration.showNotification(d.title, { body: d.body, tag: d.tag, icon: '/icon-192.png', badge: '/icon-192.png',
+    data: { url: d.url || '/' }, requireInteraction: !!d.urgent })]));
 });
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/';
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-    for (const c of list) if ('focus' in c) return c.focus();
-    return self.clients.openWindow('/');
+    for (const c of list) if ('focus' in c) { c.postMessage({ type: 'norma-open', url }); return c.focus(); }
+    return self.clients.openWindow(url);
   }));
 });

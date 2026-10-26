@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AdminDoc, Api, AuditEntry, DocKind, EventInfo, MemberProfile, InspectorAccess, DayStats, Member, MemberAccount, MemberDoc, Nc, NcStep, ReportSettings, Session, PaieMembre, PaieReglages } from '../api/types';
-import { Segmented } from '../components/Controls';
+import { Badge, Segmented } from '../components/Controls';
+import { EMPTY_TODO, type Todo } from '../notify/todo';
+import { onOpenFromNotification, setAppBadge } from '../notify/badge';
 import { Evenements } from './Evenements';
 import { Reglages } from './Reglages';
 import { Heures, HoursAlerts } from './Heures';
@@ -22,6 +24,27 @@ export function Direction({ api, onDepannage, onLogout, onInspector, initialSess
   const [reglages, setReglages] = useState(false);
   const [espace, setEspace] = useState(false);
   const [paie, setPaie] = useState(false);
+  // Pastilles : incidents ouverts, alertes d'heures, mes propres choses à faire (contrat à signer, fiche…)
+  const [todo, setTodo] = useState<Todo>(EMPTY_TODO);
+  const [openNc, setOpenNc] = useState(0);
+  const [hoursAl, setHoursAl] = useState(0);
+  const refresh = useCallback(() => {
+    if (!session) return;
+    api.myTodo().then(setTodo).catch(() => undefined);
+    api.nonconformities().then((l) => setOpenNc(l.filter((n) => !n.closed).length)).catch(() => undefined);
+    if (session.droits.includes('heures_equipe')) api.hoursAlerts(new Date()).then((l) => setHoursAl(l.length)).catch(() => undefined);
+  }, [api, session]);
+  useEffect(() => { if (session) setAppBadge(todo.badge + hoursAl); }, [session, todo, hoursAl]);
+  useEffect(() => { refresh(); }, [refresh, tab]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const vis = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', vis);
+    const id = setInterval(refresh, 60_000);
+    const off = onOpenFromNotification((x) => { if (x) setEspace(true); refresh(); });
+    return () => { document.removeEventListener('visibilitychange', vis); clearInterval(id); off(); };
+  }, [refresh]);
+  const myCount = todo.items.reduce((n, i) => n + i.n, 0);
+  const myFire = todo.items.some((i) => i.urgent);
 
   if (!session) return (
     <div className="screen">
@@ -36,13 +59,14 @@ export function Direction({ api, onDepannage, onLogout, onInspector, initialSess
     </div>
   );
 
-  if (espace && monEspace) return monEspace(() => setEspace(false));
+  if (espace && monEspace) return monEspace(() => { setEspace(false); refresh(); });
   if (paie) return <div className="screen"><PaieReglagesScreen api={api} onBack={() => setPaie(false)} /></div>;
   return (
     <div className="screen">
       <div><div className="eyebrow">{session.poste}</div><h1 className="h1">{tab === 'jour' ? 'Aujourd’hui' : tab === 'nc' ? 'Incidents' : tab === 'equipe' ? 'Équipe' : 'Plus'}</h1></div>
       <Segmented label="Sections" value={tab} onChange={setTab}
-        options={[{ value: 'jour', label: 'Jour' }, { value: 'nc', label: 'Incidents' }, { value: 'equipe', label: 'Équipe' }, { value: 'plus', label: 'Plus' }]} />
+        options={[{ value: 'jour', label: 'Jour' }, { value: 'nc', label: 'Incidents', badge: openNc, fire: openNc > 0 },
+          { value: 'equipe', label: 'Équipe', badge: hoursAl }, { value: 'plus', label: 'Plus', badge: myCount, fire: myFire }]} />
       {tab === 'jour' && <HoursAlerts api={api} onOpen={() => setTab('equipe')} />}
       {tab === 'jour' && <Jour api={api} onEvents={() => setTab('plus')} onIncidents={() => setTab('nc')} />}
       {tab === 'nc' && <Incidents api={api} session={session} />}
@@ -55,7 +79,8 @@ export function Direction({ api, onDepannage, onLogout, onInspector, initialSess
           {session.droits.includes('reglages_gerant') && <button className="row" style={rowBtn} onClick={() => setPaie(true)}>
             <span className="grow"><span className="main">Salaires</span><span className="sub">Taux horaire par poste · assurances · jour de paie</span></span>›</button>}
           {monEspace && <button className="row" style={rowBtn} onClick={() => setEspace(true)}>
-            <span className="grow"><span className="main">Mon espace</span><span className="sub">Mon planning · mes heures · mes documents · mon profil</span></span>›</button>}
+            <span className="grow"><span className="main">Mon espace</span><span className="sub">{myCount ? `${myFire ? '🔴 ' : ''}${myCount} chose(s) à faire · contrat, fiche, planning…` : 'Mon planning · mes heures · mes documents · mon profil'}</span></span>
+            <Badge n={myCount} fire={myFire} style={{ marginRight: 8 }} />›</button>}
           <button className="row" style={rowBtn} onClick={() => setReglages(true)}>
             <span className="grow"><span className="main">Réglages</span><span className="sub">Matériel · plan de nettoyage · droits des postes</span></span>›</button>
           {session.droits.includes('export') && <button className="row" style={rowBtn} onClick={async () => onInspector(await api.openInspector(session.token))}>
@@ -384,7 +409,7 @@ function Envois({ api, session }: { api: Api; session: Session }) {
         {rs?.sent.slice(0, 3).map((x) => (
           <div className="row" key={String(x.day)}><span className="grow"><span className="sub">Rapport du {dmy(x.day)} envoyé le {x.at.toLocaleString('fr-CH', { dateStyle: 'short', timeStyle: 'short' })} · {x.to} destinataire(s)</span></span></div>))}
         <div className="row"><span className="grow"><span className="main">Notifications sur cet iPhone</span>
-          <span className="sub">Incident, température hors seuil, coupure de courant, oubli de dépointage, nettoyage en retard, rapport envoyé</span></span>
+          <span className="sub">Incident, température hors seuil, coupure de courant, oubli de dépointage, nettoyage en retard, rapport envoyé, document reçu ou signé · et ce qui vous concerne (contrat à signer, planning)</span></span>
           <button className="link" disabled={busy || push === null} onClick={togglePush}>{push ? 'Désactiver' : 'Activer'}</button></div>
       </div>
       <div className="error" role="alert">{error}</div>

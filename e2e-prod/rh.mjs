@@ -31,8 +31,8 @@ log('côté Gérant :', (await g.locator('button.link', { hasText: /Contrat sais
 await g.screenshot({ path: `${out}/rh-1-gerant.png`, fullPage: true });
 
 const e = await phone('esteban@test.ch');
-log('accueil Esteban :', await e.getByRole('button', { name: /à signer/ }).innerText());
-await e.getByRole('button', { name: /à signer/ }).click(); await e.waitForTimeout(1000);
+log('accueil Esteban :', await e.getByRole('button', { name: /signer :/i }).innerText());
+await e.getByRole('button', { name: /signer :/i }).click(); await e.waitForTimeout(1000);
 log('signer avant lecture :', await e.getByRole('button', { name: '2. Signer' }).isDisabled() ? 'bloqué' : 'possible');
 await e.getByRole('button', { name: '1. Ouvrir et lire le document' }).click(); await e.waitForTimeout(1200);
 await e.getByRole('button', { name: '2. Signer' }).click(); await e.waitForTimeout(500);

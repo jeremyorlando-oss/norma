@@ -161,6 +161,8 @@ export interface Api {
   pushEnabled(): Promise<boolean>;
   pushSubscribe(): Promise<void>;
   pushUnsubscribe(): Promise<void>;
+  /** Ce que la personne connectée doit faire (pastilles, migration 012) ; incidents ouverts si elle les traite. */
+  myTodo(): Promise<import('../notify/todo').Todo>;
   resetPin(token: string, memberId: string): Promise<string>;
   dayStats(now: Date): Promise<DayStats>;
   dayReport(now: Date): Promise<DayReport>;

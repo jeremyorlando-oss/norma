@@ -1,5 +1,5 @@
 import { useT } from '../i18n';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 export function TopBar({ title, onBack }: { title: string; onBack: () => void }) {
   const t = useT();
@@ -7,14 +7,23 @@ export function TopBar({ title, onBack }: { title: string; onBack: () => void })
 }
 
 export function Segmented<T extends string>({ value, options, onChange, label }:
-  { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string }) {
+  { value: T; options: { value: T; label: string; badge?: number; fire?: boolean }[]; onChange: (v: T) => void; label: string }) {
   return (
     <div role="radiogroup" aria-label={label} style={{ display: 'grid', gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))`, background: '#E3E3E8', borderRadius: 9, padding: 2 }}>
       {options.map((o) => (
         <button key={o.value} role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}
-          style={{ height: 34, border: 'none', borderRadius: 7, fontSize: 15, background: value === o.value ? '#fff' : 'transparent', fontWeight: value === o.value ? 600 : 400, color: '#000' }}>
-          {o.label}</button>))}
+          aria-label={o.badge ? `${o.label} (${o.badge})` : undefined}
+          style={{ position: 'relative', height: 34, border: 'none', borderRadius: 7, fontSize: 15, background: value === o.value ? '#fff' : 'transparent', fontWeight: value === o.value ? 600 : 400, color: '#000' }}>
+          {o.label}{!!o.badge && <Badge n={o.badge} fire={o.fire} style={{ position: 'absolute', top: -6, right: 2 }} />}</button>))}
     </div>
+  );
+}
+
+/** Pastille rouge (nombre de choses à faire). fire = urgent : pastille qui pulse. */
+export function Badge({ n, fire, style }: { n: number; fire?: boolean; style?: CSSProperties }) {
+  if (n <= 0) return null;
+  return (
+    <span aria-hidden className={fire ? 'badge badge-fire' : 'badge'} style={style}>{n > 99 ? '99+' : n}</span>
   );
 }
 

@@ -1,9 +1,9 @@
 // NORMA · fonction serveur « notifications » — fichier généré par app/scripts/build-fonctions.mjs, à coller tel quel.
 
-// ../supabase/functions/notifications/index.ts
+// supabase/functions/notifications/index.ts
 import webpush from "npm:web-push@3.6.7";
 
-// ../supabase/functions/_commun/serveur.ts
+// supabase/functions/_commun/serveur.ts
 import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 var cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 var json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
@@ -20,7 +20,7 @@ async function cronAutorise(req, sb) {
   return data === true;
 }
 
-// ../supabase/functions/notifications/index.ts
+// supabase/functions/notifications/index.ts
 Deno.serve(async (req) => {
   const sb = admin();
   if (!await cronAutorise(req, sb)) return json({ error: "Non autoris\xE9" }, 401);
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          JSON.stringify({ title: it.title, body: it.body, tag: it.key }),
+          JSON.stringify({ title: it.title, body: it.body, tag: it.key, url: it.url ?? "/", badge: s.badge ?? null, urgent: it.urgent }),
           { TTL: 3600, urgency: it.urgent ? "high" : "normal" }
         );
         sent++;
