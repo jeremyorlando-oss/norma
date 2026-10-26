@@ -272,7 +272,10 @@ function Creer({ sb, token, info, onDone }: { sb: SupabaseClient; token: string;
   );
 }
 
-type Field = { k: string; label: string; ph?: string; type?: 'date' | 'select'; opts?: [string, string][]; ac?: string; im?: 'numeric' | 'tel' | 'email' };
+type Field = { k: string; label: string; ph?: string; type?: 'date' | 'select'; opts?: [string, string][]; ac?: string; im?: 'numeric' | 'tel' | 'email'; when?: (v: J) => boolean };
+/** Pièce d'identité suisse : pas de permis, donc pas de date de validité à demander. */
+const needsPermitDate = (v: J) => !!v.permit && v.permit !== 'CH';
+const isSwiss = (x: string) => /^\s*(suisse|swiss|suiza|suizo|schweiz|svizzera|ch)\s*$/i.test(x ?? '');
 const PERMITS: [string, string][] = [['', '—'], ['CH', 'Suisse (pas de permis)'], ['B', 'Permis B'], ['C', 'Permis C'], ['L', 'Permis L'], ['G', 'Permis G (frontalier)'],
   ['Ci', 'Permis Ci'], ['F', 'Permis F'], ['N', 'Permis N'], ['S', 'Permis S'], ['autre', 'Autre']];
 const CIVIL: [string, string][] = [['', '—'], ['celibataire', 'Célibataire'], ['marie', 'Marié·e'], ['partenariat', 'Partenariat enregistré'],
@@ -280,7 +283,7 @@ const CIVIL: [string, string][] = [['', '—'], ['celibataire', 'Célibataire'],
 const SECTIONS: [string, Field[]][] = [
   ['Identité', [{ k: 'prenoms', label: 'Prénoms complets', ac: 'given-name' }, { k: 'nom', label: 'Nom complet', ac: 'family-name' },
     { k: 'birthDate', label: 'Date de naissance', type: 'date', ac: 'bday' }, { k: 'nationality', label: 'Nationalité' },
-    { k: 'permit', label: 'Permis de séjour', type: 'select', opts: PERMITS }, { k: 'permitUntil', label: 'Permis valable jusqu’au', type: 'date' }]],
+    { k: 'permit', label: 'Permis de séjour', type: 'select', opts: PERMITS }, { k: 'permitUntil', label: 'Permis valable jusqu’au', type: 'date', when: needsPermitDate }]],
   ['Coordonnées', [{ k: 'email', label: 'E-mail', ac: 'email', im: 'email' }, { k: 'phone', label: 'Téléphone', ac: 'tel', im: 'tel' },
     { k: 'street', label: 'Rue et numéro', ac: 'street-address' }, { k: 'npa', label: 'NPA', ac: 'postal-code', im: 'numeric' },
     { k: 'city', label: 'Localité', ac: 'address-level2' }, { k: 'country', label: 'Pays', ac: 'country-name' }]],
@@ -311,19 +314,25 @@ function MesInfos({ sb }: { sb: SupabaseClient }) {
     if (k === 'children') return x.replace(/\D/g, '').slice(0, 2);
     return x;
   };
+  const change = (k: string, x: string): J => {
+    const n: J = { ...v, [k]: x };
+    if (k === 'nationality' && isSwiss(x) && !v.permit) n.permit = 'CH';
+    if (!needsPermitDate(n)) n.permitUntil = '';
+    return n;
+  };
   const style = { flex: 1, minWidth: 0, border: 'none', fontSize: 16, fontFamily: 'inherit', background: 'transparent' } as const;
   return (
     <>
       {SECTIONS.map(([title, fields]) => (<div key={title}>
         <div className="section-label">{t(title)}</div>
         <div className="group">
-          {fields.map((f) => (
+          {fields.filter((f) => !f.when || f.when(v)).map((f) => (
             <label className="row" key={f.k}><span style={{ width: 130, flexShrink: 0 }}>{t(f.label)}</span>
               {f.type === 'select'
-                ? <select value={v[f.k] ?? ''} onChange={(e) => setV({ ...v, [f.k]: e.target.value })} style={style}>
+                ? <select value={v[f.k] ?? ''} onChange={(e) => setV(change(f.k, e.target.value))} style={style}>
                     {f.opts!.map(([val, l]) => <option key={val} value={val}>{t(l)}</option>)}</select>
                 : <input type={f.type ?? 'text'} value={v[f.k] ?? ''} placeholder={f.ph} inputMode={f.im} autoComplete={f.ac}
-                    onChange={(e) => setV({ ...v, [f.k]: fmt(f.k, e.target.value) })} style={style} />}
+                    onChange={(e) => setV(change(f.k, fmt(f.k, e.target.value)))} style={style} />}
             </label>))}
         </div>
       </div>))}

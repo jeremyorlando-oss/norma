@@ -326,7 +326,7 @@ function Equipe({ api, session }: { api: Api; session: Session }) {
                     {fiche.email && <><br /><a href={`mailto:${fiche.email}`}>{fiche.email}</a></>}
                     {fiche.emergencyName && <><br />Urgence : {fiche.emergencyName} {fiche.emergencyPhone}</>}
                     {fiche.full && <>
-                      <br />Né·e le {fiche.birthDate ? new Date(fiche.birthDate).toLocaleDateString('fr-CH') : '—'} · {fiche.nationality || '—'} · Permis {fiche.permit || '—'}{fiche.permitUntil ? ` (jusqu’au ${new Date(fiche.permitUntil).toLocaleDateString('fr-CH')})` : ''}
+                      <br />Né·e le {fiche.birthDate ? new Date(fiche.birthDate).toLocaleDateString('fr-CH') : '—'} · {fiche.nationality || '—'} · {fiche.permit === 'CH' ? 'Suisse (pas de permis)' : `Permis ${fiche.permit || '—'}`}{fiche.permitUntil && fiche.permit !== 'CH' ? ` (jusqu’au ${new Date(fiche.permitUntil).toLocaleDateString('fr-CH')})` : ''}
                       <br />AVS {fiche.avs || '—'} · État civil {fiche.civilStatus || '—'} · Enfants {fiche.children ?? '—'}
                       <br />IBAN {fiche.iban ? fiche.iban.replace(/(.{4})/g, '$1 ').trim() : '—'}{fiche.ibanHolder ? ` · ${fiche.ibanHolder}` : ''}
                     </>}
