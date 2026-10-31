@@ -42,6 +42,7 @@ function Espace({ sb, me, reload, signOut, onBack }: { sb: SupabaseClient; me: J
   const t = useT();
   const [tab, setTab] = useState<Tab>(() => asTab(requestedTab()) ?? 'planning');
   const [todo, setTodo] = useState<Todo>(EMPTY_TODO);
+  const [openNotice, setOpenNotice] = useState(0);
   const refresh = useCallback(() => {
     sb.schema('norma').rpc('rpc_mes_a_faire').then(({ data }) => {
       if (!data) return;
@@ -67,18 +68,18 @@ function Espace({ sb, me, reload, signOut, onBack }: { sb: SupabaseClient; me: J
       <Segmented label={t('Sections')} value={tab} onChange={setTab}
         options={[{ value: 'planning', label: t('Planning'), ...b('planning') }, { value: 'heures', label: t('Heures') },
           { value: 'documents', label: t('Documents'), ...b('documents') }, { value: 'profil', label: t('Profil'), ...b('profil') }]} />
-      <AFaire items={todo.items.filter((i) => i.tab !== tab || i.urgent)} current={tab} onGo={setTab} />
+      <AFaire items={todo.items.filter((i) => i.tab !== tab || i.urgent)} current={tab} onGo={(tb, kind) => { setTab(tb); if (kind === 'notice') setOpenNotice((x) => x + 1); }} />
       {tab === 'planning' && <Planning sb={sb} onSeen={refresh} />}
       {tab === 'heures' && <Heures sb={sb} />}
       {tab === 'documents' && <DeLEmployeur sb={sb} me={me} onChange={refresh} />}
       {tab === 'documents' && <Documents sb={sb} me={me} />}
-      {tab === 'profil' && <Profil sb={sb} me={me} todo={todo} reload={() => { reload(); refresh(); }} signOut={signOut} />}
+      {tab === 'profil' && <Profil sb={sb} me={me} todo={todo} openNotice={openNotice} reload={() => { reload(); refresh(); }} signOut={signOut} />}
     </div>
   );
 }
 
 /** Carte rouge « À faire » : ce qui attend la personne, l'urgent (🔴) en premier ; un appui ouvre le bon onglet. */
-function AFaire({ items, current, onGo }: { items: TodoItem[]; current: Tab; onGo: (t: Tab) => void }) {
+function AFaire({ items, current, onGo }: { items: TodoItem[]; current: Tab; onGo: (t: Tab, kind?: TodoItem['kind']) => void }) {
   const t = useT();
   if (!items.length) return null;
   const fire = items.filter((i) => i.urgent).length;
@@ -91,7 +92,7 @@ function AFaire({ items, current, onGo }: { items: TodoItem[]; current: Tab; onG
       {sortTodo(items).map((i) => {
         const [k, v] = todoLabel(i);
         return (
-          <button key={i.id} className={i.urgent ? 'todo-row fire' : 'todo-row'} onClick={() => onGo(i.tab)} disabled={i.tab === current && !i.urgent}>
+          <button key={i.id} className={i.urgent ? 'todo-row fire' : 'todo-row'} onClick={() => onGo(i.tab, i.kind)} disabled={i.tab === current && !i.urgent}>
             <span className="grow">{i.urgent ? '🔴 ' : ''}{t(k, v)}</span>{i.tab !== current && <span style={{ color: '#C7C7CC' }}>›</span>}
           </button>);
       })}
@@ -226,9 +227,14 @@ function Documents({ sb, me }: { sb: SupabaseClient; me: J }) {
   );
 }
 
-function Profil({ sb, me, todo, reload, signOut }: { sb: SupabaseClient; me: J; todo: Todo; reload: () => void; signOut: () => void }) {
+function Profil({ sb, me, todo, openNotice = 0, reload, signOut }: { sb: SupabaseClient; me: J; todo: Todo; openNotice?: number; reload: () => void; signOut: () => void }) {
   const t = useT(); const lang = useLang(); const loc = LOCALE[lang];
-  const [notice, setNotice] = useState(false);
+  const [notice, setNotice] = useState(openNotice > 0);
+  const noticeRef = useRef<HTMLDivElement>(null);
+  // ouverte depuis la carte « À faire »
+  useEffect(() => { if (openNotice > 0) setNotice(true); }, [openNotice]);
+  // la notice s'affiche juste sous la ligne : on la fait défiler à l'écran
+  useEffect(() => { if (notice) noticeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [notice]);
   const n = privacyNotice(lang, CONTROLLER);
   const setLang = async (l: string) => { await sb.schema('norma').rpc('rpc_ma_langue', { p_lang: l }); reload(); };
   const ok = (me.formations as J[]).find((f) => f.score === 5);
@@ -252,15 +258,16 @@ function Profil({ sb, me, todo, reload, signOut }: { sb: SupabaseClient; me: J; 
           <button className="link" onClick={() => setNotice(!notice)}>{notice ? t('Fermer') : t('Lire')}</button></div>
         <Notifications sb={sb} />
       </div>
-      <MesInfos sb={sb} onSaved={reload} />
       {notice && (
-        <div className="group" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div ref={noticeRef} className="group" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <b>{n.title}</b><p className="note" style={{ margin: 0 }}>{n.intro}</p>
           {n.sections.map((s) => (<div key={s.title}><b>{s.title}</b>
             {s.text && <p className="note" style={{ margin: '4px 0 0' }}>{s.text}</p>}
             {s.rows?.map((r) => <p key={r[0]} className="note" style={{ margin: '4px 0 0' }}><b>{r[0]}</b> · {r[1]} · {r[2]}</p>)}</div>))}
           {noticeDue && <button className="btn btn-primary" onClick={ackNotice}>{t('J’ai lu la notice')}</button>}
+          <button className="btn" onClick={() => setNotice(false)}>{t('Fermer')}</button>
         </div>)}
+      <MesInfos sb={sb} onSaved={reload} />
       <img src={LOGO_ICON_URL} alt="" style={{ width: 40, height: 40, alignSelf: 'center', opacity: 0.6 }} />
       <button className="btn" style={{ color: 'var(--red)' }} onClick={signOut}>{t('Se déconnecter')}</button>
     </>
