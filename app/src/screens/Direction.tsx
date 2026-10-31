@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { formatPhone } from '../domain/phone';
 import type { AdminDoc, Api, AuditEntry, DocKind, EventInfo, MemberProfile, InspectorAccess, DayStats, Member, MemberAccount, MemberDoc, Nc, NcStep, ReportSettings, Session, PaieMembre, PaieReglages } from '../api/types';
 import { Badge, Segmented } from '../components/Controls';
 import { EMPTY_TODO, type Todo } from '../notify/todo';
@@ -347,9 +348,9 @@ function Equipe({ api, session }: { api: Api; session: Session }) {
                   <div className="sub" style={{ lineHeight: 1.5 }}>
                     <b style={{ color: '#000' }}>{fiche.prenoms} {fiche.nom}</b><br />
                     {[fiche.street, [fiche.npa, fiche.city].filter(Boolean).join(' '), fiche.country !== 'Suisse' ? fiche.country : ''].filter(Boolean).join(', ')}
-                    {fiche.phone && <><br /><a href={`tel:${fiche.phone.replace(/\s/g, '')}`}>{fiche.phone}</a></>}
+                    {fiche.phone && <><br /><a href={`tel:${fiche.phone.replace(/\s/g, '')}`}>{formatPhone(fiche.phone)}</a></>}
                     {fiche.email && <><br /><a href={`mailto:${fiche.email}`}>{fiche.email}</a></>}
-                    {fiche.emergencyName && <><br />Urgence : {fiche.emergencyName} {fiche.emergencyPhone}</>}
+                    {fiche.emergencyName && <><br />Urgence : {fiche.emergencyName} {formatPhone(fiche.emergencyPhone)}</>}
                     {fiche.full && <>
                       <br />Né·e le {fiche.birthDate ? new Date(fiche.birthDate).toLocaleDateString('fr-CH') : '—'} · {fiche.nationality || '—'} · {fiche.permit === 'CH' ? 'Suisse (pas de permis)' : `Permis ${fiche.permit || '—'}`}{fiche.permitUntil && fiche.permit !== 'CH' ? ` (jusqu’au ${new Date(fiche.permitUntil).toLocaleDateString('fr-CH')})` : ''}
                       <br />AVS {fiche.avs || '—'} · État civil {fiche.civilStatus || '—'} · Enfants {fiche.children ?? '—'}

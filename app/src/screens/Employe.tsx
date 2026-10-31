@@ -12,6 +12,7 @@ import { EMPTY_TODO, sortTodo, tabBadge, todoLabel, type Todo, type TodoItem } f
 import { onOpenFromNotification, requestedTab, setAppBadge } from '../notify/badge';
 import { currentSubscription, pushSupported, subscribePush } from '../notify/push';
 import { PRIVACY_VERSION } from '../domain/privacy';
+import { formatPhone } from '../domain/phone';
 
 type J = Record<string, any>;   // eslint-disable-line @typescript-eslint/no-explicit-any
 type Tab = 'planning' | 'heures' | 'documents' | 'profil';
@@ -349,13 +350,13 @@ const SECTIONS: [string, Field[]][] = [
   ['Identité', [{ k: 'prenoms', label: 'Prénoms complets', ac: 'given-name' }, { k: 'nom', label: 'Nom complet', ac: 'family-name' },
     { k: 'birthDate', label: 'Date de naissance', type: 'date', ac: 'bday' }, { k: 'nationality', label: 'Nationalité' },
     { k: 'permit', label: 'Permis de séjour', type: 'select', opts: PERMITS }, { k: 'permitUntil', label: 'Permis valable jusqu’au', type: 'date', when: needsPermitDate }]],
-  ['Coordonnées', [{ k: 'email', label: 'E-mail', ac: 'email', im: 'email' }, { k: 'phone', label: 'Téléphone', ac: 'tel', im: 'tel' },
+  ['Coordonnées', [{ k: 'email', label: 'E-mail', ac: 'email', im: 'email' }, { k: 'phone', label: 'Téléphone', ph: '079 123 45 67', ac: 'tel', im: 'tel' },
     { k: 'street', label: 'Rue et numéro', ac: 'street-address' }, { k: 'npa', label: 'NPA', ac: 'postal-code', im: 'numeric' },
     { k: 'city', label: 'Localité', ac: 'address-level2' }, { k: 'country', label: 'Pays', ac: 'country-name' }]],
   ['Salaire et assurances sociales', [{ k: 'avs', label: 'Numéro AVS', ph: '756.1234.5678.97', im: 'numeric' },
     { k: 'iban', label: 'IBAN', ph: 'CH93 0076 2011 6238 5295 7' }, { k: 'ibanHolder', label: 'Titulaire du compte' },
     { k: 'civilStatus', label: 'État civil', type: 'select', opts: CIVIL }, { k: 'children', label: 'Enfants à charge', im: 'numeric' }]],
-  ['Personne à prévenir en cas d’urgence', [{ k: 'emergencyName', label: 'Nom' }, { k: 'emergencyPhone', label: 'Téléphone', im: 'tel' }]],
+  ['Personne à prévenir en cas d’urgence', [{ k: 'emergencyName', label: 'Nom' }, { k: 'emergencyPhone', label: 'Téléphone', ph: '079 123 45 67', im: 'tel' }]],
 ];
 
 /** Informations personnelles (dossier du personnel) : saisies par la personne elle-même. */
@@ -365,7 +366,7 @@ function MesInfos({ sb, onSaved }: { sb: SupabaseClient; onSaved?: () => void })
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const db = useMemo(() => sb.schema('norma'), [sb]);
-  const show = (d: J) => ({ ...d, iban: (d.iban ?? '').replace(/(.{4})/g, '$1 ').trim() });
+  const show = (d: J) => ({ ...d, iban: (d.iban ?? '').replace(/(.{4})/g, '$1 ').trim(), phone: formatPhone(d.phone), emergencyPhone: formatPhone(d.emergencyPhone) });
   useEffect(() => { db.rpc('rpc_mon_profil').then(({ data }) => data && setV(show(data))); }, [db]);
   if (!v) return null;
   const save = async () => {
@@ -376,6 +377,7 @@ function MesInfos({ sb, onSaved }: { sb: SupabaseClient; onSaved?: () => void })
   const fmt = (k: string, x: string) => {
     if (k === 'avs') { const d = x.replace(/\D/g, '').slice(0, 13); return [d.slice(0, 3), d.slice(3, 7), d.slice(7, 11), d.slice(11, 13)].filter(Boolean).join('.'); }
     if (k === 'iban') return x.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 34).replace(/(.{4})/g, '$1 ').trim();
+    if (k === 'phone' || k === 'emergencyPhone') return formatPhone(x);
     if (k === 'children') return x.replace(/\D/g, '').slice(0, 2);
     return x;
   };
